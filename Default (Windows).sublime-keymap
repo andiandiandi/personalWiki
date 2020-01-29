@@ -1,0 +1,13 @@
+[
+	{ "keys": ["ctrl+e"], "command": "toggle_wikiword" },
+	{ "keys": ["ctrl+q"], "command": "preview_md_image" },
+	{ "keys": ["alt+w"], "command": "follow_link" },
+	{ "keys": ["alt+e"], "command": "navigate_wikipage"},
+	{ "keys": ["alt+q"], "command": "navigate_wikipage" , "args":{"forward": false} },
+	{ "keys": ["alt+h"], "command": "navigate_wikipage" , "args":{"home": true} },
+	{ "keys": ["ctrl+w"], "command": "show_wordcount" , "args":{ "should_scan_whole_project": false }},
+	{ "keys": ["ctrl+alt+w"], "command": "show_wordcount", "args":{ "should_scan_whole_project": true }},
+	{ "keys": ["ctrl+alt+e"], "command": "check_for_broken_links", "args":{ "also_check_http": false }},
+
+	{ "keys": ["ctrl+alt+q"], "command": "insert_template", "args":{ "wikipage": "C:\\Users\\Andre\\Desktop\\aaa\\newFile.md","template_filename": "timeAndPagename"}},
+]
