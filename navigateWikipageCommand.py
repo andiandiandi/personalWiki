@@ -8,14 +8,14 @@ Navigator = {}
 class Navigator():
 	def __init__(self):
 		self.list_of_full_filepaths = DoublyLinkedList()
+		self.reset_after_tabs = 10
 		self.current_index = 0
 
-	def debug(self):
-		self.list_of_full_filepaths.debug()
-
 	def insert(self,full_filepath):
-		self.list_of_full_filepaths.insert(full_filepath)
-
+		if self.list_of_full_filepaths.count < self.reset_after_tabs:
+			self.list_of_full_filepaths.insert(full_filepath)
+			if self.list_of_full_filepaths.count >= self.reset_after_tabs:
+				self.list_of_full_filepaths.remove_first_half()
 
 	def ret_next_filepath(self, forward = True, home = False):
 		if home:
@@ -26,7 +26,10 @@ class Navigator():
 			else:
 				self.list_of_full_filepaths.go_back()
 		
-		return self.list_of_full_filepaths.current.data
+		if self.list_of_full_filepaths.current:
+			return self.list_of_full_filepaths.current.data
+		else:
+			return None
 
 def plugin_loaded():
 	global Navigator
@@ -35,7 +38,8 @@ def plugin_loaded():
 class NavigateWikipageCommand(sublime_plugin.TextCommand):
 	def run(self, edit, forward = True, home=False):
 		file_path = Navigator.ret_next_filepath(forward = forward, home = home)
-		self.view.window().open_file(file_path)
+		if file_path:
+			self.view.window().open_file(file_path)
 
 
 
@@ -88,6 +92,7 @@ class DoublyLinkedList:
 		"""
 		self.head = None
 		self.current = None
+		self.count = 0
 
 	def __repr__(self):
 		"""
@@ -113,14 +118,16 @@ class DoublyLinkedList:
 		if not self.head:
 			self.head = DListNode(data=data)
 			self.current = self.head
-			print("inserting==prev:{0},next:{1},current:{2}".format(self.current.prev.data if self.current.prev else None,self.current.next.data if self.current.next else None,self.current.data))
+			self.count += 1
+			#print("inserting==prev:{0},next:{1},current:{2}".format(self.current.prev.data if self.current.prev else None,self.current.next.data if self.current.next else None,self.current.data))
 			return
 		curr = self.head
 		while curr is not self.current:
 			curr = curr.next
 		curr.next = DListNode(data=data, prev=curr)
 		self.current = curr.next
-		print("inserting==prev:{0},next:{1},current:{2}".format(self.current.prev.data if self.current.prev else None,self.current.next.data if self.current.next else None,self.current.data))
+		#print("inserting==prev:{0},next:{1},current:{2}".format(self.current.prev.data if self.current.prev else None,self.current.next.data if self.current.next else None,self.current.data))
+		self.count += 1
 
 	def find(self, key):
 		"""
@@ -147,6 +154,8 @@ class DoublyLinkedList:
 		node.prev = None
 		node.next = None
 
+		self.count -= 1
+
 	def remove(self, key):
 		"""
 		Remove the first occurrence of `key` in the list.
@@ -156,20 +165,47 @@ class DoublyLinkedList:
 		if not elem:
 			return
 		self.remove_elem(elem)
+		self.count -= 1
 
 	def go_back(self):
-		if self.current.prev:
-			self.current = self.current.prev
-		print("back==prev:{0},next:{1},current:{2}".format(self.current.prev.data if self.current.prev else None,self.current.next.data if self.current.next else None,self.current.data))
+		if self.current:
+			if self.current.prev:
+				self.current = self.current.prev
+		#print("back==prev:{0},next:{1},current:{2}".format(self.current.prev.data if self.current.prev else None,self.current.next.data if self.current.next else None,self.current.data))
 
 	def go_forward(self):
-		if self.current.next:
-			self.current = self.current.next
-		print("forward==prev:{0},next:{1},current:{2}".format(self.current.prev.data if self.current.prev else None,self.current.next.data if self.current.next else None,self.current.data))
+		if self.current:
+			if self.current.next:
+				self.current = self.current.next
+		#print("forward==prev:{0},next:{1},current:{2}".format(self.current.prev.data if self.current.prev else None,self.current.next.data if self.current.next else None,self.current.data))
 
 	def go_home(self):
 		if self.head:
 			self.insert(self.head.data)
+
+	def clear(self):
+		self.head = None
+		self.current = None
+		self.count = 0
+
+	def remove_first_half(self):
+		current_count = 0
+		if self.count > 2:
+			to_reach = int(self.count/2)
+			new_head = self.head
+			print(to_reach)
+			while current_count < to_reach:
+				if new_head.next:
+					new_head = new_head.next
+					current_count +=1
+				else:
+					return
+			self.head = new_head
+			self.head.prev = None
+		else:
+			return
+		self.count = current_count
+
 
 	def reverse(self):
 		"""
@@ -184,8 +220,3 @@ class DoublyLinkedList:
 			curr.next = prev_node
 			curr = curr.prev
 		self.head = prev_node.prev
-
-	def debug(self):
-		pass
-
-   
