@@ -11,3 +11,4 @@
 
 	{ "keys": ["ctrl+alt+q"], "command": "insert_template", "args":{ "wikipage": "C:\\Users\\Andre\\Desktop\\aaa\\newFile.md","template_filename": "timeAndPagename"}},
 ]
+

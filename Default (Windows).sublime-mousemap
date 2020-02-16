@@ -5,4 +5,5 @@
 		"button": "button1", "count": 2, "modifiers": ["ctrl"],
 		"press_command": "show_wordcount",
 	},
+
 ]
