@@ -39,6 +39,9 @@ class ShowWordcountCommand(sublime_plugin.TextCommand):
 
 		self.should_scan_whole_project = should_scan_whole_project
 
+		wiki_settings = sublime.load_settings('wiki.sublime-settings')
+		self.settings = wiki_settings.get("wordcount")
+
 		if should_scan_whole_project:
 			self.start_scanning_whole_project()
 		else:
@@ -47,7 +50,6 @@ class ShowWordcountCommand(sublime_plugin.TextCommand):
 		
 	def start_scanning_whole_project(self):
 
-		self.settings = sublime.load_settings('WordCount.sublime-settings')
 		self.Pref = Controls(self.settings,self.should_scan_whole_project)
 
 		view = self.view
@@ -79,7 +81,6 @@ class ShowWordcountCommand(sublime_plugin.TextCommand):
 
 	def start_scanning_current_view(self):
 
-		self.settings = sublime.load_settings('WordCount.sublime-settings')
 		self.Pref = Controls(self.settings,self.should_scan_whole_project)
 
 		view = self.view
@@ -110,14 +111,14 @@ class ShowWordcountCommand(sublime_plugin.TextCommand):
 		self.filetype = ShowWordcountCommand.path_to_fileextension(full_filepath_with_name)
 
 
-		if len(self.Pref.whitelist) > 0:
-			for white in self.Pref.whitelist:
-				if white == self.filetype:
+		if len(self.Pref.whitelist) > 0 and self.filetype:
+			for whitelisted_filetype in self.Pref.whitelist:
+				if whitelisted_filetype == self.filetype:
 					return True
 			return False
 
 		#fallback
-		if self.filetype == ".md":
+		if self.filetype and self.filetype == ".md":
 			return True
 
 

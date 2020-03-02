@@ -193,7 +193,6 @@ class DoublyLinkedList:
 		if self.count > 2:
 			to_reach = int(self.count/2)
 			new_head = self.head
-			print(to_reach)
 			while current_count < to_reach:
 				if new_head.next:
 					new_head = new_head.next
