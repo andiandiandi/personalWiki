@@ -89,7 +89,9 @@ class DragNDropListener(sublime_plugin.EventListener):
 					if basename_dropped_file == opened_file:
 						sublime.active_window().run_command('close_file')
 						return
-			if pathManager.file_exists(view.file_name()):
+
+			#check if dropped file already exists in wikifolder of current page
+			if pathManager.file_exists(os.path.join(DragNDropManager.dir_to_save_to,os.path.basename(view.file_name()))):
 				sublime.active_window().run_command('close_file')
 				return
 
