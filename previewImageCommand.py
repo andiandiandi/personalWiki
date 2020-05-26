@@ -4,17 +4,22 @@ import os
 import re
 import base64
 import urllib.request
+import imp
+from .helperfun import pathManager
+
+def plugin_loaded():
+	imp.reload(pathManager)
 
 phantom_dict = {}
 
 
 url_regex = re.compile(
-        r'^(?:http|ftp)s?://' # http:// or https://
-        r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|' #domain...
-        r'localhost|' #localhost...
-        r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})' # ...or ip
-        r'(?::\d+)?' # optional port
-        r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+		r'^(?:http|ftp)s?://' # http:// or https://
+		r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|' #domain...
+		r'localhost|' #localhost...
+		r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})' # ...or ip
+		r'(?::\d+)?' # optional port
+		r'(?:/?|[/?]\S+)$', re.IGNORECASE)
 
 class PreviewMdImageCommand(sublime_plugin.TextCommand):
 
@@ -26,7 +31,7 @@ class PreviewMdImageCommand(sublime_plugin.TextCommand):
 			phantom_dict[view.id()] = set()
 		
 		img_regions = view.find_by_selector(
-	            'markup.underline.link.image.markdown')
+				'markup.underline.link.image.markdown')
 
 		if PreviewMdImageCommand.points_at_imagelink(view):
 
@@ -75,7 +80,7 @@ class PreviewMdImageCommand(sublime_plugin.TextCommand):
 	def preview_single_local_image(self,view,image_linkname,region):
 
 		if re.match(url_regex,image_linkname) is None:
-			cwd = PreviewMdImageCommand.get_path_of(view)
+			cwd = pathManager.folder_of_view(view)
 			if not cwd:
 				view.window().status_message("projectfolder not found")
 				return
@@ -112,26 +117,13 @@ class PreviewMdImageCommand(sublime_plugin.TextCommand):
 
 		return ascii_decoded_string
 
-	@staticmethod
-	def get_path_of(view):
-
-	    folder = None
-	    if view.window().project_file_name():
-	        folder = os.path.dirname(view.window().project_file_name())
-	    elif view.file_name():
-	        folder = os.path.dirname(view.file_name())
-	    elif view.window().folders():
-	        folder = os.path.abspath(view.window().folders()[0])
-
-	    return folder
-
 
 class ViewCalculator(sublime_plugin.ViewEventListener):
-    def __init__(self, view):
-        self.view = view
-       
-    def on_close(self):
-    	if self.view.id() in phantom_dict:
-    		phantom_dict[self.view.id()].clear()
+	def __init__(self, view):
+		self.view = view
+	   
+	def on_close(self):
+		if self.view.id() in phantom_dict:
+			phantom_dict[self.view.id()].clear()
 
-    
+	

@@ -9,6 +9,9 @@
 	{ "keys": ["ctrl+alt+w"], "command": "show_wordcount", "args":{ "should_scan_whole_project": true }},
 	{ "keys": ["ctrl+alt+e"], "command": "check_for_broken_links", "args":{ "also_check_http": false }},
 
+
+	{ "keys": ["alt+f"], "command": "drag_and_drop"},
+
 	{ "keys": ["ctrl+alt+q"], "command": "insert_template", "args":{ "wikipage": "C:\\Users\\Andre\\Desktop\\aaa\\newFile.md","template_filename": "timeAndPagename"}},
 ]
 

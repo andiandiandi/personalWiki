@@ -1,24 +1,59 @@
 import sublime
 import sublime_plugin
-import os
+import imp
+import time
+import threading
+from .helperfun import wikiSettingsManager
+from .helperfun import pathManager
+
+def plugin_loaded():
+	imp.reload(pathManager)
+	imp.reload(wikiSettingsManager)
+	global Controls
+	Controls = Controls()
+
+	global Thread
+	Thread = threading.Thread(target=print_every_n_seconds, daemon=True)
+	Thread.start()
+
+IntervalTaskRunner = None
+Thread = None
+Controls = None
+
+def save_every_n_seconds():
+	saved_unique_num = Controls.dynamic_unique_num
+	while saved_unique_num == Controls.dynamic_unique_num:
+		if Controls and Controls.auto_save:
+			current_active_view = sublime.active_window().active_view()
+			if Controls.is_filetype_supported(current_active_view.file_name()):
+				print("saved")
+				current_active_view.window().run_command("save")
+		else:
+			print("not saved")
+			return
+		time.sleep(Controls.saving_interval)
+
 
 class Controls:
-	def __init__(self,sublime_settings, file_name):
+	def __init__(self):
 
-		self.auto_save         = sublime_settings.get('auto_save', False)
-		self.whitelist 		   = [x.lower() for x in sublime_settings.get('whitelist_filetypes', []) or []]
+		sublime_settings 	    = wikiSettingsManager.get("saving")
 
-		if self.auto_save:
-			if not Controls.is_syntax_supported(self.whitelist, file_name):
-				self.auto_save = False
+		self.auto_save          = sublime_settings.get('auto_save', False)
+		self.whitelist 		    = [x.lower() for x in sublime_settings.get('whitelist_filetypes', []) or []]
+		self.saving_interval    = sublime_settings.get('saving_interval', 25)
+		self.dynamic_unique_num = int(round(time.time() * 1000))
 
-	@staticmethod
-	def is_syntax_supported(whitelist,full_filepath_with_name):
+		#only unsigned integers for saving-interval
+		if self.saving_interval <= 0:
+			self.saving_interval = 25
 
-		filetype = Controls.path_to_fileextension(full_filepath_with_name)
+	def is_filetype_supported(self,full_filepath_with_name):
 
-		if len(whitelist) > 0 and filetype:
-			for whitelisted_filetype in whitelist:
+		filetype = pathManager.extension_of_filepath(full_filepath_with_name)
+
+		if len(self.whitelist) > 0 and filetype:
+			for whitelisted_filetype in self.whitelist:
 				if whitelisted_filetype == filetype:
 					return True
 			return False
@@ -26,26 +61,4 @@ class Controls:
 		#fallback
 		if filetype and filetype == ".md":
 			return True
-
-	@staticmethod
-	def path_to_fileextension(full_filepath_with_name):
-		return os.path.splitext(os.path.basename(full_filepath_with_name))[1]
-
-
-
-class ViewAutosave(sublime_plugin.ViewEventListener):
-	def __init__(self, view):
-
-		self.view = view
-
-		wiki_settings = sublime.load_settings('wiki.sublime-settings')
-		self.settings = wiki_settings.get("saving")
-		self.Pref = Controls(self.settings, self.view.file_name())
-
-	def on_modified_async(self):
-
-		if self.Pref and self.Pref.auto_save:
-			print("saved")
-			self.view.window().run_command("save")
-		else:
-			print("not saved")
+		

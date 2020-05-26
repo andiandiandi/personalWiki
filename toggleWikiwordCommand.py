@@ -8,29 +8,13 @@ import imp
 def plugin_loaded():
     imp.reload(templateGenerator)
 
-frontmatter = {
-    "markdown_extensions": [
-        "markdown.extensions.admonition",
-        "markdown.extensions.attr_list",
-        "markdown.extensions.def_list",
-        "markdown.extensions.nl2br",
-        # Smart quotes always have corner cases that annoy me, so don't bother with them.
-        {"markdown.extensions.smarty": {"smart_quotes": False}},
-        "pymdownx.betterem",
-        {
-            "pymdownx.magiclink": {
-                "repo_url_shortener": True,
-                "repo": "sublime-markdown-popups",
-                "user": "facelessuser"
-            }
-        },
-        "pymdownx.extrarawhtml",
-        "pymdownx.keys",
-        {"pymdownx.escapeall": {"hardbreak": True, "nbsp": True}},
-        # Sublime doesn't support superscript, so no ordinal numbers
-        {"pymdownx.smartsymbols": {"ordinal_numbers": False}}
-    ]
-}
+
+class InsertMdLinkCommand(sublime_plugin.TextCommand):
+    def run(self, edit, title, link):
+        if not title or not link:
+            return
+        caret_region = self.view.sel()[0]
+        self.view.insert(edit, caret_region.a, "[{0}]({1})".format(title,link))
 
 class ToggleWikiwordCommand(sublime_plugin.TextCommand):
     def run(self, edit):

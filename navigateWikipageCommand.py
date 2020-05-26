@@ -1,8 +1,23 @@
 import sublime
 import sublime_plugin
-import os
+import imp
+from .helperfun import pathManager
+from .helperfun import wikiSettingsManager
+
+def plugin_loaded():
+	imp.reload(pathManager)
+	imp.reload(wikiSettingsManager)
+
+	global Navigator
+	Navigator = Navigator()
+
+	global supported_filetypes 
+	supported_filetypes = wikiSettingsManager.get("navigation").get("traverse_filetypes")
+	
+	
 
 Navigator = {}
+supported_filetypes = []
 
 
 class Navigator():
@@ -31,9 +46,6 @@ class Navigator():
 		else:
 			return None
 
-def plugin_loaded():
-	global Navigator
-	Navigator = Navigator()
 
 class NavigateWikipageCommand(sublime_plugin.TextCommand):
 	def run(self, edit, forward = True, home=False):
@@ -53,22 +65,12 @@ class OpenNewFile(sublime_plugin.EventListener):
 
 	def is_syntax_supported(self, full_filepath_with_name):
 
-		#old way
-		#vs =  view.settings()
-		#self.syntax = vs.get('syntax')
-		#self.syntax = basename(self.syntax).split('.')[0].lower() if self.syntax != None else "plain text"
-
-		self.filetype = OpenNewFile.path_to_fileextension(full_filepath_with_name)
-
-		if self.filetype == ".md":
+		filetype = pathManager.extract_fileextension(full_filepath_with_name)
+		
+		if filetype in supported_filetypes:
 			return True
 
 		return False
-
-
-	@staticmethod
-	def path_to_fileextension(full_filepath_with_name):
-		return os.path.splitext(os.path.basename(full_filepath_with_name))[1]
 
 
 class DListNode:
@@ -188,6 +190,7 @@ class DoublyLinkedList:
 		self.current = None
 		self.count = 0
 
+	#cut list in half when limit is reached
 	def remove_first_half(self):
 		current_count = 0
 		if self.count > 2:

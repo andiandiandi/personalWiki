@@ -1,9 +1,12 @@
 {
 	"saving":{
-
 		"auto_save": true,
-		"whitelist_filetypes": [".md",".txt"]
+		"whitelist_filetypes": [".md",".txt"],
+		"saving_interval": 25
 
+	},
+	"navigation":{
+		"traverse_filetypes": [".md"]
 	},
 	"wordcount":{
 
