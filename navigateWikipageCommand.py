@@ -3,10 +3,12 @@ import sublime_plugin
 import imp
 from .helperfun import pathManager
 from .helperfun import wikiSettingsManager
+from .helperfun import wikiValidator
 
 def plugin_loaded():
 	imp.reload(pathManager)
 	imp.reload(wikiSettingsManager)
+	imp.reload(wikiValidator)
 
 	global Navigator
 	Navigator = Navigator()
@@ -14,8 +16,6 @@ def plugin_loaded():
 	global supported_filetypes 
 	supported_filetypes = wikiSettingsManager.get("navigation").get("traverse_filetypes")
 	
-	
-
 Navigator = {}
 supported_filetypes = []
 
@@ -49,6 +49,10 @@ class Navigator():
 
 class NavigateWikipageCommand(sublime_plugin.TextCommand):
 	def run(self, edit, forward = True, home=False):
+
+		if not wikiValidator.validate() == wikiValidator.ValidationResult.success:
+			return
+
 		file_path = Navigator.ret_next_filepath(forward = forward, home = home)
 		if file_path:
 			self.view.window().open_file(file_path)
@@ -60,14 +64,14 @@ class OpenNewFile(sublime_plugin.EventListener):
 	def on_activated(self,view):
 		global Navigator
 		if Navigator:
-			if self.is_syntax_supported(view.file_name()):
+			if view.file_name() and self.is_syntax_supported(view.file_name()):
 				Navigator.insert(view.file_name())
 
 	def is_syntax_supported(self, full_filepath_with_name):
 
 		filetype = pathManager.extract_fileextension(full_filepath_with_name)
 		
-		if filetype in supported_filetypes:
+		if filetype and filetype in supported_filetypes:
 			return True
 
 		return False

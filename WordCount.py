@@ -4,6 +4,11 @@ from math import ceil as ceil
 from os.path import basename
 import inspect
 import os
+import imp
+from .helperfun import wikiValidator
+
+def plugin_loaded():
+	imp.reload(wikiValidator)
 
 class Controls:
 	def __init__(self,sublime_settings, should_scan_whole_project):
@@ -36,6 +41,9 @@ class Controls:
 class ShowWordcountCommand(sublime_plugin.TextCommand):
 
 	def run(self,edit, should_scan_whole_project = True):
+
+		if not wikiValidator.validate() == wikiValidator.ValidationResult.success:
+			return
 
 		self.should_scan_whole_project = should_scan_whole_project
 

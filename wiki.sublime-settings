@@ -2,7 +2,7 @@
 	"saving":{
 		"auto_save": true,
 		"whitelist_filetypes": [".md",".txt"],
-		"saving_interval": 25
+		"saving_interval": 2
 
 	},
 	"navigation":{

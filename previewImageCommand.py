@@ -6,9 +6,11 @@ import base64
 import urllib.request
 import imp
 from .helperfun import pathManager
+from .helperfun import wikiValidator
 
 def plugin_loaded():
 	imp.reload(pathManager)
+	imp.reload(wikiValidator)
 
 phantom_dict = {}
 
@@ -25,6 +27,9 @@ class PreviewMdImageCommand(sublime_plugin.TextCommand):
 
 	def run(self, edit):
 
+		if not wikiValidator.validate() == wikiValidator.ValidationResult.success:
+			return
+			
 		view = self.view
 
 		if not view.id() in phantom_dict:

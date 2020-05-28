@@ -1,0 +1,7 @@
+[
+
+    {
+        "caption": "Initialize project as a Wiki",
+        "command": "init_wiki"
+    }
+]

@@ -10,7 +10,7 @@ def __settings_file():
 	return sublime.load_settings('wiki.sublime-settings')
 
 def __settings_file_exists():
-	return pathManager.file_exists(full_path_to_settings_file())
+	return pathManager.exists(full_path_to_settings_file())
 
 def full_path_to_settings_file():
 	return os.path.join(pathManager.path_to_plugin_folder(),"wiki.sublime-settings")

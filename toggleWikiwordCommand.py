@@ -2,15 +2,18 @@ import sublime
 import sublime_plugin
 import mdpopups
 import os
-from .wikipageTemplates import templateGenerator as templateGenerator
 import imp
+from .wikipageTemplates import templateGenerator as templateGenerator
+from .helperfun import wikiValidator
 
 def plugin_loaded():
     imp.reload(templateGenerator)
+    imp.reload(wikiValidator)
 
 
 class InsertMdLinkCommand(sublime_plugin.TextCommand):
     def run(self, edit, title, link):
+
         if not title or not link:
             return
         caret_region = self.view.sel()[0]
@@ -18,6 +21,10 @@ class InsertMdLinkCommand(sublime_plugin.TextCommand):
 
 class ToggleWikiwordCommand(sublime_plugin.TextCommand):
     def run(self, edit):
+
+        if not wikiValidator.validate() == wikiValidator.ValidationResult.success:
+            return
+
         view = self.view
 
         selected_region = None

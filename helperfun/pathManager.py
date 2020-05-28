@@ -14,12 +14,18 @@ def basename_w_ext_of_path(full_filepath_with_name):
 def extension_of_filepath(full_filepath_with_name):
 	return os.path.splitext(os.path.basename(full_filepath_with_name))[1]
 
-def root_folder_of_window(window):
-	return sublime.active_window().extract_variables()['folder']
+def root_folder_of_window():
+	variables = sublime.active_window().extract_variables()
+	if variables and 'folder' in variables:
+		return variables['folder']
+	return None
 
 #top most root folder of the window that view sits in
 def root_folder_of_view(view):
-	return view.window().extract_variables()['folder'] 
+	variables = view.window().extract_variables()
+	if variables and 'folder' in variables:
+		return variables['folder']
+	return None
 
 #immediate folder of given view
 def folder_of_view(view):
@@ -37,9 +43,8 @@ def extract_fileextension(full_filepath_with_name):
 def path_to_helperfun():
 	return os.path.dirname(__file__)
 
-def file_exists(full_path_of_file):
-	return os.path.isfile(full_path_of_file) 
-	return os.path.isfile()
+def exists(full_path_of_file):
+	return os.path.exists(full_path_of_file) 
 
 def resolve_relative_path(base_path,relative_navigation):
 	unresolved_rel_path = os.path.join(base_path, relative_navigation)
