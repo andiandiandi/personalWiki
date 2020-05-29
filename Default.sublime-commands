@@ -3,5 +3,9 @@
     {
         "caption": "Initialize project as a Wiki",
         "command": "init_wiki"
+    },
+    {
+        "caption": "Debug project as a Wiki",
+        "command": "debug_init"
     }
 ]

@@ -1,6 +1,27 @@
 import sqlite3
+import os
+from . import wikiValidator
+from . import pathManager
 
-connection = None
+class Db:
+	def __init__(self):
+		pass
+
+
+
+def db_existance_check():
+	ValidationResult = wikiValidator.validate()
+
+	if ValidationResult[0] == wikiValidator.ValidationResult.success:
+		#db exists already
+		path = os.path.join(ValidationResult[1],"stWiki.db")
+		path_exists = pathManager.exists(path)
+		if path_exists:
+			return wikiValidator.ValidationResult.success, path
+		else:
+			return wikiValidator.ValidationResult.failure, path
+	else:
+		return ValidationResult
 
 def create_connection():
 	""" create a database connection to a SQLite database """
@@ -38,8 +59,3 @@ def sel():
 	cursor.execute("select * from employees")
 	print(cursor.fetchall())
 
-create_connection()
-create_table()
-insert("a","b",1)
-insert("lol","a",2)
-sel()

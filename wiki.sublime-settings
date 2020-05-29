@@ -1,12 +1,15 @@
-{
+{	
+	"navigation":{
+		"traverse_filetypes": [".md"]
+	},
 	"saving":{
 		"auto_save": true,
 		"whitelist_filetypes": [".md",".txt"],
 		"saving_interval": 2
 
 	},
-	"navigation":{
-		"traverse_filetypes": [".md"]
+	"session":{
+		"clear_sessions_interval": 25
 	},
 	"wordcount":{
 
