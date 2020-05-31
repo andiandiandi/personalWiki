@@ -14,8 +14,12 @@ def basename_w_ext_of_path(full_filepath_with_name):
 def extension_of_filepath(full_filepath_with_name):
 	return os.path.splitext(os.path.basename(full_filepath_with_name))[1]
 
-def root_folder_of_window():
-	variables = sublime.active_window().extract_variables()
+def root_folder_of(window = None):
+	variables = None
+	if window:
+		variables = window.extract_variables()
+	else:
+		variables = sublime.active_window().extract_variables()
 	if variables and 'folder' in variables:
 		return variables['folder']
 	return None
@@ -44,6 +48,7 @@ def path_to_helperfun():
 	return os.path.dirname(__file__)
 
 def exists(full_path_of_file):
+	print(full_path_of_file)
 	return os.path.exists(full_path_of_file) 
 
 def resolve_relative_path(base_path,relative_navigation):

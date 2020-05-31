@@ -1,61 +1,79 @@
 import sqlite3
 import os
-from . import wikiValidator
+import imp
+from . import configManager
 from . import pathManager
 
+imp.reload(configManager)
+imp.reload(pathManager)
+
 class Db:
-	def __init__(self):
-		pass
+	def __init__(self,configpath):
+		self.configpath = configpath
+		self.path = os.path.join(self.configpath, "stWiki.db")
+		self.connection = None
 
+	def init(self):
+		self.create_connection()
+		#exists = self.check_existance()
+		#if not exists:
+		#	exists = 
 
+	def check_existance(self):
+		return pathManager.exists(self.path)
 
-def db_existance_check():
-	ValidationResult = wikiValidator.validate()
+	def create_connection(self):
+		try:
+			if self.connection:
+				return connection
+			else:
+				self.connection = sqlite3.connect(self.path)
+		except Error as e:
+			print(e)
 
-	if ValidationResult[0] == wikiValidator.ValidationResult.success:
-		#db exists already
-		path = os.path.join(ValidationResult[1],"stWiki.db")
-		path_exists = pathManager.exists(path)
-		if path_exists:
-			return wikiValidator.ValidationResult.success, path
-		else:
-			return wikiValidator.ValidationResult.failure, path
-	else:
-		return ValidationResult
+		return self.has_connection()
 
-def create_connection():
-	""" create a database connection to a SQLite database """
-	global connection
-	try:
-		if connection:
-			return connection
-		else:
-			connection = sqlite3.connect(":memory:")
-	except Error as e:
-		print(e)
+	def has_connection(self):
+		return bool(self.connection)
 
-	return connection
+	def create_table(self):
+		cursor = self.connection.cursor()
+		cursor.execute("""Create Table employees (
+				first text,
+				age integer
+				)""")
+		self.connection.commit()
 
+	def drop_table(self):
+		cursor = self.connection.cursor()
+		cursor.execute('drop table if exists employees')
+		self.connection.commit()
+
+	def has_table(self):
+		
+		cursor = self.connection.cursor()
+		cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='employees'")
+		return bool(cursor.fetchall())
+
+	def insert(self,fname,age):
+		cursor = self.connection.cursor()
+		cursor.execute("insert into employees values (:fname,:age)",{'fname':fname, 'age':age})
+		self.connection.commit()
+
+	def remove_entry(self):
+		list = self.sel()
+		print(list)
+		item = list[0]
+		sql = 'DELETE FROM employees WHERE age=?'
+		cursor = self.connection.cursor()
+		cursor.execute(sql, (item[1],))
+		self.connection.commit()
+		print(self.sel())
+
+	def sel(self):
+		cursor = self.connection.cursor()
+		cursor.execute("select * from employees")
+		return cursor.fetchall()
 	
-def create_table():
-	global connection
-	cursor = connection.cursor()
-	cursor.execute("""Create Table employees (
-			first text,
-			second text,
-			age integer
-			)""")
-	connection.commit()
 
-def insert(fname,sname,age):
-	global connection
-	cursor = connection.cursor()
-	cursor.execute("insert into employees values (:fname,:sname,:age)",{'fname':fname,'sname':sname,'age':age})
-	connection.commit()
-
-def sel():
-	global connection
-	cursor = connection.cursor()
-	cursor.execute("select * from employees")
-	print(cursor.fetchall())
 

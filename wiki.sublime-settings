@@ -9,7 +9,7 @@
 
 	},
 	"session":{
-		"clear_sessions_interval": 25
+		"clear_sessions_interval": 3
 	},
 	"wordcount":{
 
