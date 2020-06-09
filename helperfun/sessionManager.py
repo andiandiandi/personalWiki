@@ -1,77 +1,108 @@
+from . import configManager
 from . import pathManager
 from . import wikiSettingsManager
-import sublime
+from . import localApi
+
 import imp
-import os
+from . import socketio
+
 import time
 import threading
 
+_CONNECTIONSTRING = "http://127.0.0.1:9000"
+
+imp.reload(configManager)
 imp.reload(pathManager)
+imp.reload(socketio)
 imp.reload(wikiSettingsManager)
+imp.reload(localApi)
 
-
-wikis = {}
-
+connections = {}
 _zombieCollector = None
 
-
-############## session related #######################
-
-def add_wiki(window,db,configpath,Wiki_obj = None):
-	if Wiki_obj:
-		wikis[Wiki.window.window_id] = Wiki_obj
+def add(root_folder,window_id):
+	if not root_folder in connections:
+		connections[root_folder] = Connection(root_folder,window_id)
 	else:
-		wiki = Wiki(window,db,configpath)
-		wikis[window.window_id] = wiki
+		Con = connections[root_folder]
+		if window_id not in Con.window_ids:
+			Con.add_window_id(window_id)
 
 	if not _zombieCollector:
 		run_zombieCollector()
+	elif not _zombieCollector.isAlive():
+		run_zombieCollector()
+
+	return connections[root_folder]
 
 
-def remove_wiki(key,window=None):
-	if window:
-		del wikis[window.window_id]
-	else:
-		del wikis[key]
+def remove(root_folder):
+	if root_folder in connections:
+		try:
+			connections[root_folder].disconnect()
+			connections[root_folder] = None
+			del connections[root_folder]
+		except:
+			connections[root_folder] = None
+			del connections[root_folder]
 
-def current_wiki():
-	return wikis[sublime.active_window().window_id]
+def connection(path):
+	return connections[path]
 
-class Wiki:
-	def __init__(self,window,db,configpath):
-		self.window = window
-		self.db = db
-		self.configpath = configpath
-		self.wikipath = pathManager.resolve_relative_path(configpath,"..")
+class Connection:
+	def __init__(self,path,window_id):
+		self.path = path
+		self.window_ids = [window_id]
+		self.socket = socketio.Client(reconnection = True)
+		self.socket.on("connect",self.connected)
+		self.socket.on("disconnect",self.disconnected)
 
-	def wikiname(self):
-		return os.path.basename(self.wikipath)
+	def add_window_id(self,window_id):
+		if window_id not in self.window_ids:
+			self.window_ids.append(window_id)
+
+	def connect(self):
+		self.socket.connect('http://localhost:9000')
+
+	def disconnect(self):
+		if self.socket.connected:
+			print("disconnecting")
+			self.socket.disconnect()
+
+	def connected(self):
+		print(self.socket.sid, "connected")
+
+	def disconnected(self):
+		print(self.socket.sid, "disconnected")
+
+	def send(self):
+		self.socket.emit("message","hi")
 
 
+############### threading section#################
 
-############### zombie collection #################
-
-def check_zombies_every_n_seconds(stop_event):
+def check_zombies_every_n_seconds():
 	zombie_clear_interval = get_zombie_clear_interval()
-	while wikis:
+	while connections:
+		active_windows = [(window.id(),pathManager.root_folder(window)) for window in localApi.windows()]
 
-		current_sublime_open_windows = [window.window_id for window in sublime.windows()]
-		remove = [k for k in wikis.keys() if k not in current_sublime_open_windows]
-		print(wikis)
-		print(remove)
-		for k in remove: 
-			remove_wiki(k)
+		for con in list(connections.values()):
+			#iterate over copy
+			for id in list(con.window_ids):
+				if (id,con.path) not in active_windows:
+					con.window_ids.remove(id)
+
+
+		to_remove = [k for k in connections.keys() if not connections[k].window_ids]
+		for k in to_remove: 
+			remove(k)
 
 		time.sleep(zombie_clear_interval)
 
 
-
 def run_zombieCollector():
-	global pill2kill
-	pill2kill = threading.Event()
-
 	global _zombieCollector
-	_zombieCollector = threading.Thread(target=check_zombies_every_n_seconds, args=(pill2kill,), daemon=True)
+	_zombieCollector = threading.Thread(target=check_zombies_every_n_seconds, daemon=True)
 	_zombieCollector.start()
 
 def stop_zombieCollector():
@@ -84,14 +115,10 @@ def stop_zombieCollector():
 
 def get_zombie_clear_interval():
 	sublime_settings 	    = wikiSettingsManager.get("session")
-	clear_sessions_interval    = sublime_settings.get('clear_sessions_interval', 25)
+	clear_sessions_interval    = sublime_settings.get('clear_sessions_interval', 15)
 
 	#only unsigned integers for saving-interval
 	if clear_sessions_interval <= 0:
-		clear_sessions_interval = 25
+		clear_sessions_interval = 15
 
 	return clear_sessions_interval
-
-################## cleanup #####################
-def clean_up():
-	wikis = None

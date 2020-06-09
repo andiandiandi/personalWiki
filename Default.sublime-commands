@@ -7,5 +7,9 @@
     {
         "caption": "Debug project as a Wiki",
         "command": "debug_init"
+    },
+     {
+        "caption": "Debug2 project as a Wiki",
+        "command": "debug_debug_init"
     }
 ]

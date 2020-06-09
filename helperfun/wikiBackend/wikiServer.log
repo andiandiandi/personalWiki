@@ -1,0 +1,12 @@
+testing logging inside route. word
+C:\Users\Andre\Desktop\nowiki
+127.0.0.1 2020-06-06 17:28:26.585038 POST http://localhost:9000/init 200 OK
+127.0.0.1 2020-06-06 17:29:36.781886 POST http://localhost:9000/init 200 OK
+127.0.0.1 2020-06-06 17:30:16.486388 POST http://localhost:9000/init 200 OK
+127.0.0.1 2020-06-06 17:32:52.469263 GET http://localhost:9000/search 200 OK
+127.0.0.1 2020-06-06 17:33:10.065515 GET http://localhost:9000/search 200 OK
+127.0.0.1 2020-06-06 17:33:56.500014 GET http://localhost:9000/search 200 OK
+127.0.0.1 2020-06-06 17:34:07.557684 GET http://localhost:9000/search 200 OK
+127.0.0.1 2020-06-06 17:35:36.513496 GET http://localhost:9000/search 200 OK
+127.0.0.1 2020-06-06 17:59:30.725949 GET http://localhost:9000/search 200 OK
+127.0.0.1 2020-06-06 17:59:55.164988 GET http://localhost:9000/search 200 OK

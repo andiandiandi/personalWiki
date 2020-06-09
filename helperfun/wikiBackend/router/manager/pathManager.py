@@ -1,11 +1,4 @@
 import os
-import sublime
-
-def dir_of_view(view):
-	return os.path.split(view.file_name())[0]
-
-def dir_of_current_view():
-	return dir_of_view(sublime.active_window().active_view())
 
 def basename_w_ext_of_path(full_filepath_with_name):
 	temp = os.path.splitext(os.path.basename(full_filepath_with_name))
@@ -14,26 +7,6 @@ def basename_w_ext_of_path(full_filepath_with_name):
 def extension_of_filepath(full_filepath_with_name):
 	return os.path.splitext(os.path.basename(full_filepath_with_name))[1]
 
-def root_folder(window = None):
-	variables = None
-	if window:
-		variables = window.extract_variables()
-	else:
-		variables = sublime.active_window().extract_variables()
-	if variables and 'folder' in variables:
-		return variables['folder']
-	return None
-
-#top most root folder of the window that view sits in
-def root_folder_of_view(view):
-	variables = view.window().extract_variables()
-	if variables and 'folder' in variables:
-		return variables['folder']
-	return None
-
-#immediate folder of given view
-def folder_of_view(view):
-	return os.path.dirname(view.file_name())
 
 def folder_has_file(folder,full_path_of_file):
 	for folder, subs, files in os.walk(folder):
