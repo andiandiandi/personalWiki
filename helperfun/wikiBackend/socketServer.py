@@ -1,24 +1,24 @@
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO
 
+from manager import wikiManager
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app)
 
-clients = []
 
 @socketio.on("connect")
 def connect():
-	print("connected")
-	clients.append(request.sid)
+	wikiManager.initWikiProject(request.sid)
 
 @socketio.on('disconnect')
 def test_disconnect():
-	print('Client disconnected')
+	wikiManager.removeWiki(request.sid)
 
-@socketio.on('message')
+@socketio.on('debug')
 def handle_message(message):
-	socketio.emit('res', "received message " + str(request.sid), room=clients[1])
+	socketio.emit('debug', str(wikiManager.sessions_count()), room=request.sid)
 
 if __name__ == '__main__':
 	socketio.run(app, host="127.0.0.1", port=9000)

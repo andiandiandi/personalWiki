@@ -56,13 +56,15 @@ class Connection:
 		self.socket = socketio.Client(reconnection = True)
 		self.socket.on("connect",self.connected)
 		self.socket.on("disconnect",self.disconnected)
+		self.socket.on("debug",self.debug)
 
 	def add_window_id(self,window_id):
 		if window_id not in self.window_ids:
 			self.window_ids.append(window_id)
 
 	def connect(self):
-		self.socket.connect('http://localhost:9000')
+		if not self.socket.connected:
+			self.socket.connect(_CONNECTIONSTRING)
 
 	def disconnect(self):
 		if self.socket.connected:
@@ -75,8 +77,11 @@ class Connection:
 	def disconnected(self):
 		print(self.socket.sid, "disconnected")
 
-	def send(self):
-		self.socket.emit("message","hi")
+	def debug(self,data):
+		print("debug event:",data)
+
+	def send(self,event,message):
+		self.socket.emit(event,message)
 
 
 ############### threading section#################

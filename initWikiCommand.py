@@ -23,14 +23,14 @@ class DebugInitCommand(sublime_plugin.TextCommand):
 	def run(self,edit):
 		root_folder = pathManager.root_folder()
 		con = sessionManager.connection(root_folder)
-		con.disconnect()
+		con.send("debug","test")
 
 class DebugDebugInitCommand(sublime_plugin.TextCommand):
 	
 	def run(self,edit):
 		root_folder = pathManager.root_folder()
 		con = sessionManager.connection(root_folder)
-		print(con.window_ids)
+		con.disconnect()
 
 class InitWikiCommand(sublime_plugin.TextCommand):
 
@@ -39,4 +39,5 @@ class InitWikiCommand(sublime_plugin.TextCommand):
 
 		root_folder = pathManager.root_folder()
 		window_id = localApi.window_id()
-		sessionManager.add(root_folder,window_id)
+		Connection = sessionManager.add(root_folder,window_id)
+		Connection.connect()
