@@ -15,10 +15,13 @@ def initWikiProject(sid):
 	else:
 		return False
 
-
-
 def removeWiki(sid):
 	sessionManager.remove_wiki(None,sid=sid)
+
+def iniDbProject(sid,json_project_structure):
+	Wiki = sessionManager.wiki(sid)
+	if Wiki:
+		Wiki.initialize_db(json_project_structure)
 
 def sessions_count():
 	return len(sessionManager.wikis)

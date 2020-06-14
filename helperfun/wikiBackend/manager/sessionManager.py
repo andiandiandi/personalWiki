@@ -22,15 +22,22 @@ def remove_wiki(wiki, sid=None):
 	else:
 		del wikis[sid]
 
+def wiki(sid):
+	if wikis[sid]:
+		return wikis[sid]
+	else:
+		return None
+
 class Wiki:
 	def __init__(self,sid, db = None):
 		self.sid = sid
 		self.db = db if db else None
 
-	def initialize_db(self):
+	def initialize_db(self, json_project_structure):
 		if not self.db:
 			self.db = databaseManager.DbWrapper(self)
 			self.db.create_connection()
+		self.db.initialize(json_project_structure)
 
 
 ################## cleanup #####################

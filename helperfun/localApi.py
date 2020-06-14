@@ -1,6 +1,5 @@
 import sublime
 
-
 def windows():
 	return sublime.windows()
 

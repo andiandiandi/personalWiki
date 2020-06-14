@@ -20,5 +20,10 @@ def test_disconnect():
 def handle_message(message):
 	socketio.emit('debug', str(wikiManager.sessions_count()), room=request.sid)
 
+@socketio.on('initdb')
+def handle_message(json_project_structure):
+	print("here")
+	wikiManager.iniDbProject(request.sid, json_project_structure)
+
 if __name__ == '__main__':
 	socketio.run(app, host="127.0.0.1", port=9000)

@@ -46,6 +46,9 @@ def remove(root_folder):
 			connections[root_folder] = None
 			del connections[root_folder]
 
+def createConnection(root_folder,window_id):
+	return Connection(root_folder,window_id)
+
 def connection(path):
 	return connections[path]
 
@@ -83,7 +86,6 @@ class Connection:
 	def send(self,event,message):
 		self.socket.emit(event,message)
 
-
 ############### threading section#################
 
 def check_zombies_every_n_seconds():
@@ -96,11 +98,12 @@ def check_zombies_every_n_seconds():
 			for id in list(con.window_ids):
 				if (id,con.path) not in active_windows:
 					con.window_ids.remove(id)
-
+					print("removing from con:",id)
 
 		to_remove = [k for k in connections.keys() if not connections[k].window_ids]
 		for k in to_remove: 
 			remove(k)
+			print("removing",k)
 
 		time.sleep(zombie_clear_interval)
 

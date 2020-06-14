@@ -9,6 +9,7 @@
 	{ "keys": ["ctrl+alt+w"], "command": "show_wordcount", "args":{ "should_scan_whole_project": true }},
 	{ "keys": ["ctrl+alt+e"], "command": "check_for_broken_links", "args":{ "also_check_http": false }},
 
+	{ "keys": ["alt+t"], "command": "wiki_search" },
 
 	{ "keys": ["alt+f"], "command": "drag_and_drop"},
 

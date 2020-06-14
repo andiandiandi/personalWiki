@@ -59,3 +59,21 @@ def resolve_relative_path(base_path,relative_navigation):
 
 def path_to_plugin_folder():
 	return resolve_relative_path(path_to_helperfun(),"..")
+
+def createFile(file,path):
+	d = {}
+	full_path =  os.path.join(path,file)
+	d["path"] = full_path
+	d["content"] = open(full_path, 'r', encoding='utf8').read()
+	print(d["content"])
+	return d
+
+def path_to_dict(path):
+	d = None
+	if os.path.isdir(path):
+		d = {'name': os.path.basename(path)}
+		d['type'] = "folder"
+		d['folders'] = [path_to_dict(os.path.join(path,x)) for x in os.listdir(path) if os.path.isdir(os.path.join(path,x))]
+		d['files'] = [createFile(f,path) for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
+	return d
+

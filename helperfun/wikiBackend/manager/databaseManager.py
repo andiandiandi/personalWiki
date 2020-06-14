@@ -7,23 +7,22 @@ from .models import models
 
 class DbWrapper:
 	def __init__(self, wiki):
-		self.configpath = wiki.configpath
-		self.path = os.path.join(self.configpath, "stWiki.db")
 		self.db = None
 		self.wiki = wiki
 
-	def dbfile_exists(self):
-		return pathManager.exists(self.path)
-
 	def create_connection(self):
 		try:
-			self.db = SqliteDatabase(self.path)
+			self.db = SqliteDatabase(":memory:")
 			self.db.connect()
-		except:
-			print("db error")
+		except Exception as e:
+			print(e)
 			return False
 
 		return self.has_connection()
+
+	def initialize(self, json_project_structure):
+		self.drop_tables()
+		print(json_project_structure)
 
 	def has_connection(self):
 		return bool(self.db)
