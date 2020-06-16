@@ -52,6 +52,7 @@ def parseText(md_ast, d = None, p = 0):
 def parseContent(content):
 	markdown = mistune.create_markdown(renderer=mistune.AstRenderer())
 	tree = markdown(content)
+	print(tree)
 	return tree
 
 def initProject(db,model_dict, jsondata, parentID = None):
@@ -72,8 +73,10 @@ def initProject(db,model_dict, jsondata, parentID = None):
 		imagelinks = json.dumps(list_of_imagelinks(tree))
 		textlinks = json.dumps(list_of_textlinks(tree))
 		model_dict["content"].create(textdict = textdict, textlinks=textlinks,imagelinks=imagelinks,fileid=persisted_file.id)
+		return
 	#fill folder table
 	for subfolder in subfolders:
+		pass
 		initProject(db,model_dict,subfolder,parentID)
 
 class DbWrapper:
@@ -142,29 +145,20 @@ class DbWrapper:
 		with self.db.bind_ctx(Models):
 			query = models.Content.select(models.Content.textdict,models.Content.textlinks,models.Content.imagelinks).join(models.File)
 			for row in query:
-				print(row.textdict)
-				d = json.loads(row.textdict)
-				for word in words:
-					if word[0] in d:
-						l = d[word[0]]
-						print(l)
-						if l:
-							for item in l:
-								if word in item[0]:
-									print("found:",word)
-				return
+				print(row)
 
 
 w = DbWrapper()
 w.create_connection()
 w.prepare_tables()
 
-jsondata = {"folders": [{"folders": [{"folders": [], "type": "folder", "files": [{"content": "", "path": "C:\\Users\\Andre\\Desktop\\nowiki\\testfolder\\subtestfolder\\subtestfile1.md"}], "name": "subtestfolder"}], "type": "folder", "files": [{"content": "### header 3 alla\ney mach mal  \n\ncontent fit yo", "path": "C:\\Users\\Andre\\Desktop\\nowiki\\testfolder\\testfile1.md"}, {"content": "", "path": "C:\\Users\\Andre\\Desktop\\nowiki\\testfolder\\testfile2.md"}], "name": "testfolder"}, {"folders": [], "type": "folder", "files": [{"content": "asdasd\n", "path": "C:\\Users\\Andre\\Desktop\\nowiki\\wikiconfig\\asd.py"}], "name": "wikiconfig"}], "type": "folder", "files": [{"content": "# This is an <h1> tag\n## This is an <h2> tag\n###### This is an <h6> tag\n\n*This text will be italic*\n_This will also be italic_\n\n**This text will be bold**\n__This will also be bold__\n\n_You **can** combine them_\n\n* Item 1\n* Item 2\n  * Item 2a\n  * Item 2b\n\n1. Item 1\n1. Item 2\n1. Item 3\n   1. Item 3a\n   1. Item 3b\n\n![GitHub Logo](/images/logo.png)\nFormat: ![Alt Text](url)\n\nhttp://github.com - automatic!\n[GitHub](http://github.com)\n\nAs Kanye West said:\n\n> We're living the future so\n> the present is our past.\n\nI think you should use an\n`<addr>` element here instead.\n\n\n```javascript\nfunction fancyAlert(arg) {\n  if(arg) {\n    $.facebox({div:'#foo'})\n  }\n}\n```", "path": "C:\\Users\\Andre\\Desktop\\nowiki\\testfile2.md"}], "name": "nowiki"}
+jsondata = {"name": "testwiki", "type": "folder", "folders": [{"name": "wikiconfig", "type": "folder", "folders": [], "files": []}], "files": [{"content": "this is   \na link ![i](https://i.stack.imgur.com/wQ0qQ.png?s=32)\nnow i have a header in next line \n# header1\ncontent for header one\nis really good content yeah\n![imagelink2](image.png)\n\nthis should be line number 8\n\nHere's our logo (hover to see the title text):\n\nInline-style: \n![alt text](https://github.com/adam-p/markdown-here/raw/master/src/common/images/icon48.png \"Logo Title Text 1\")\n\nReference-style: \n![alt text][logo]\n\n[logo]: https://github.com/adam-p/markdown-here/raw/master/src/common/images/icon48.png \"Logo Title Text 2\"\n\n[linktofile](test.py)\nasddsd13", "path": "C:\\Users\\Andre\\Desktop\\testwiki\\asd.md"}, {"content": "import mistune\nfrom random import randrange\n\nimport json\n\ndef parseContent(content):\n\tmarkdown = mistune.create_markdown(renderer=mistune.AstRenderer())\n\ttree = markdown(content)\n\treturn tree\n\ndef parseText(md_ast, d = None, p = 0):\n\tif d is None:\n\t\td = {}\n\tfor entry in md_ast:\n\t\tif \"type\" in entry:\n\t\t\tif entry[\"type\"] == \"paragraph\":\n\t\t\t\tif \"children\" in entry:\n\t\t\t\t\tprint(p)\n\t\t\t\t\tparseText(entry[\"children\"],d=d,p=p)\n\t\t\t\t\tp+=1\n\t\t\telif entry[\"type\"] == \"text\":\n\t\t\t\tif entry[\"text\"]:\n\t\t\t\t\tfor s in entry[\"text\"].split():\n\t\t\t\t\t\tif s[0] in d:\n\t\t\t\t\t\t\td[s[0]].append((s,p))\n\t\t\t\t\t\telse: \n\t\t\t\t\t\t\td[s[0]] = []\n\t\t\t\t\t\t\td[s[0]].append((s,p))\n\treturn d\n\nwith open(\"asd.md\",\"r\", encoding=\"utf-8\") as f:\n\tr = f.read()\n\ttree = parseContent(r)\n\tprint(tree)\n\tprint(\"_-----------------------\")\n\td = parseText(tree)\n\tprint(json.dumps(d))", "path": "C:\\Users\\Andre\\Desktop\\testwiki\\test.py"}]}
+
 w.initProject(jsondata)
-w.query(["Item","1"])
 
 
 #todo
 #json1 für sqlite
 #oder
+       
 #iwie stringify links
