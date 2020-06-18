@@ -40,8 +40,8 @@ class AstRenderer(BaseRenderer):
     def image(self, src, alt="", title=None, span = None):
         return {'type': 'image', 'src': src, 'alt': alt, 'title': title, "span" : {"from": span["from"], "to":span["to"]} if span else {}}
 
-    def codespan(self, text):
-        return {'type': 'codespan', 'text': text}
+    def codespan(self, text, span):
+        return {'type': 'codespan', 'text': text, "span": {"from": span["from"], "to":span["to"]}}
 
     def linebreak(self):
         return {'type': 'linebreak'}
@@ -58,29 +58,31 @@ class AstRenderer(BaseRenderer):
     def thematic_break(self):
         return {'type': 'thematic_break'}
 
-    def block_code(self, children, info=None):
+    def block_code(self, children, info=None, span=None):
         return {
             'type': 'block_code',
             'text': children,
-            'info': info
+            'info': info,
+            "span": {"from": span["from"], "to":span["to"]} if span else {},
         }
 
-    def block_html(self, children):
-        return {'type': 'block_html', 'text': children}
+    def block_html(self, children, span = None):
+        return {'type': 'block_html', 'text': children, "span": {"from": span["from"], "to":span["to"]} if span else {}}
 
-    def list(self, children, ordered, level, start=None):
+    def list(self, children, ordered, level, start=None, span=None):
         token = {
             'type': 'list',
             'children': children,
             'ordered': ordered,
             'level': level,
+            "span" : span,
         }
         if start is not None:
             token['start'] = start
         return token
 
-    def list_item(self, children, level):
-        return {'type': 'list_item', 'children': children, 'level': level}
+    def list_item(self, children, level, span = None):
+        return {'type': 'list_item', 'children': children, 'level': level, "span": {"from": span["from"], "to":span["to"]} if span else {}}
 
     def _create_default_method(self, name):
         def __ast(children, span = None):

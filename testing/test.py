@@ -8,6 +8,9 @@ import mistune
 import json
 import re
 
+import mistletoe
+from mistletoe.ast_renderer import ASTRenderer
+
 Models = [models.File,models.Folder,models.Content]
 
 def list_of_imagelinks(md_ast):
@@ -53,6 +56,11 @@ def parseContent(content):
 	markdown = mistune.create_markdown(renderer=mistune.AstRenderer())
 	tree = markdown(content)
 	print(tree)
+	return treeb
+
+def parseContentMistletoe(content):
+	tree = mistletoe.markdown(content, ASTRenderer)
+	#print(tree)
 	return tree
 
 def initProject(db,model_dict, jsondata, parentID = None):
@@ -68,10 +76,13 @@ def initProject(db,model_dict, jsondata, parentID = None):
 		path = os.path.dirname(full_path)
 		persisted_file = model_dict["file"].create(name=basename_no_extension,extension=extension,path=path, fullpath=full_path,folderid=parentID)
 
-		tree = parseContent(file["content"])
-		textdict = json.dumps(parseText(tree))
-		imagelinks = json.dumps(list_of_imagelinks(tree))
-		textlinks = json.dumps(list_of_textlinks(tree))
+		tree = parseContentMistletoe(file["content"])
+		#textdict = json.dumps(parseText(tree))
+		#imagelinks = json.dumps(list_of_imagelinks(tree))
+		#textlinks = json.dumps(list_of_textlinks(tree))
+		textdict = ""
+		textlinks = ""
+		imagelinks = ""
 		model_dict["content"].create(textdict = textdict, textlinks=textlinks,imagelinks=imagelinks,fileid=persisted_file.id)
 		return
 	#fill folder table
@@ -119,7 +130,7 @@ class DbWrapper:
 	def selFolders(self):
 		with self.db.bind_ctx(Models):
 			r = models.Folder.select()
-			for f in r:
+			for f in r:	
 				print(f.name)
 				print(f.id)
 				print(f.parentid)
@@ -141,21 +152,21 @@ class DbWrapper:
 		with self.db.bind_ctx(Models):
 			r = models.File.get_by_id(models.File.id==id)
 
-	def query(self,words):
+	def query(self,id):
 		with self.db.bind_ctx(Models):
-			query = models.Content.select(models.Content.textdict,models.Content.textlinks,models.Content.imagelinks).join(models.File)
+			query = models.Content.select(models.Content.textdict,models.Content.textlinks,models.Content.imagelinks).join(models.File).where(models.File.id==0)
 			for row in query:
-				print(row)
-
+				pass
 
 w = DbWrapper()
 w.create_connection()
 w.prepare_tables()
 
-jsondata = {"name": "testwiki", "type": "folder", "folders": [{"name": "wikiconfig", "type": "folder", "folders": [], "files": []}], "files": [{"content": "this is   \na link ![i](https://i.stack.imgur.com/wQ0qQ.png?s=32)\nnow i have a header in next line \n# header1\ncontent for header one\nis really good content yeah\n![imagelink2](image.png)\n\nthis should be line number 8\n\nHere's our logo (hover to see the title text):\n\nInline-style: \n![alt text](https://github.com/adam-p/markdown-here/raw/master/src/common/images/icon48.png \"Logo Title Text 1\")\n\nReference-style: \n![alt text][logo]\n\n[logo]: https://github.com/adam-p/markdown-here/raw/master/src/common/images/icon48.png \"Logo Title Text 2\"\n\n[linktofile](test.py)\nasddsd13", "path": "C:\\Users\\Andre\\Desktop\\testwiki\\asd.md"}, {"content": "import mistune\nfrom random import randrange\n\nimport json\n\ndef parseContent(content):\n\tmarkdown = mistune.create_markdown(renderer=mistune.AstRenderer())\n\ttree = markdown(content)\n\treturn tree\n\ndef parseText(md_ast, d = None, p = 0):\n\tif d is None:\n\t\td = {}\n\tfor entry in md_ast:\n\t\tif \"type\" in entry:\n\t\t\tif entry[\"type\"] == \"paragraph\":\n\t\t\t\tif \"children\" in entry:\n\t\t\t\t\tprint(p)\n\t\t\t\t\tparseText(entry[\"children\"],d=d,p=p)\n\t\t\t\t\tp+=1\n\t\t\telif entry[\"type\"] == \"text\":\n\t\t\t\tif entry[\"text\"]:\n\t\t\t\t\tfor s in entry[\"text\"].split():\n\t\t\t\t\t\tif s[0] in d:\n\t\t\t\t\t\t\td[s[0]].append((s,p))\n\t\t\t\t\t\telse: \n\t\t\t\t\t\t\td[s[0]] = []\n\t\t\t\t\t\t\td[s[0]].append((s,p))\n\treturn d\n\nwith open(\"asd.md\",\"r\", encoding=\"utf-8\") as f:\n\tr = f.read()\n\ttree = parseContent(r)\n\tprint(tree)\n\tprint(\"_-----------------------\")\n\td = parseText(tree)\n\tprint(json.dumps(d))", "path": "C:\\Users\\Andre\\Desktop\\testwiki\\test.py"}]}
+jsondata = {"type": "folder", "files": [{"content": "- First item\n- Second item\n- Third item\n    - Indented item\n    - Indented item\n- Fourth item\n\n\njo\nfetten\n\ntest", "path": "C:\\Users\\Andre\\Desktop\\testwiki\\asd.md"}, {"content": "", "path": "C:\\Users\\Andre\\Desktop\\testwiki\\test.py"}], "folders": [{"type": "folder", "files": [], "folders": [], "name": "wikiconfig"}], "name": "testwiki"}
+
+
 
 w.initProject(jsondata)
-
 
 #todo
 #json1 für sqlite

@@ -107,7 +107,10 @@ class BlockParser(ScannerParser):
         text = expand_leading_tab(m.group(0))
         code = _INDENT_CODE_TRIM.sub('', text)
         code = code.lstrip('\n')
-        return self.tokenize_block_code(code, None, state)
+        spanarg = {}
+        spanarg["from"] = m.span()[0]
+        spanarg["to"] = m.span()[1]
+        return self.tokenize_block_code(code, None, state, spanarg)
 
     def parse_fenced_code(self, m, state):
         info = ESCAPE_CHAR.sub(r'\1', m.group(3))
@@ -116,15 +119,19 @@ class BlockParser(ScannerParser):
         if spaces and code:
             _trim_pattern = re.compile('^' + spaces, re.M)
             code = _trim_pattern.sub('', code)
-        return self.tokenize_block_code(code + '\n', info, state)
 
-    def tokenize_block_code(self, code, info, state):
-        token = {'type': 'block_code', 'raw': code}
+        spanarg = {}
+        spanarg["from"] = m.span()[0]
+        spanarg["to"] = m.span()[1]
+        return self.tokenize_block_code(code + '\n', info, state, spanarg)
+
+    def tokenize_block_code(self, code, info, state, span):
+        token = {'type': 'block_code', 'raw': code, "span":span}
         if info:
             token['params'] = (info, )
         return token
 
-    def parse_axt_heading(self, m, state, span):
+    def parse_axt_heading(self, m, state):
         level = len(m.group(1))
         text = m.group(2) or ''
         text = text.strip()
@@ -135,7 +142,7 @@ class BlockParser(ScannerParser):
         spanarg["to"] = m.span()[1]
         return self.tokenize_heading(text, level, state, spanarg)
 
-    def parse_setex_heading(self, m, state, span):
+    def parse_setex_heading(self, m, state):
         level = 1 if m.group(2) == '=' else 2
         text = m.group(1)
         text = text.strip()
@@ -157,16 +164,20 @@ class BlockParser(ScannerParser):
     def parse_block_quote(self, m, state):
         depth = state.get('block_quote_depth', 0) + 1
         state['block_quote_depth'] = depth
-
+        print("BLOCK",m)
+        spanarg = {}
+        spanarg["from"] = m.span()[0]
+        spanarg["to"] = m.span()[1]
         # normalize block quote text
         text = _BLOCK_QUOTE_LEADING.sub('', m.group(0))
         text = expand_leading_tab(text)
         text = _BLOCK_QUOTE_TRIM.sub('', text)
 
         rules = self.get_block_quote_rules(depth)
-        children = self.parse(text, state, rules)
+        children = self.parse(text, state, rules, span=spanarg)
         state['block_quote_depth'] = depth - 1
-        return {'type': 'block_quote', 'children': children}
+        
+        return {'type': 'block_quote', 'children': children, "span": spanarg}
 
     def get_list_rules(self, depth):
         if depth > self.LIST_MAX_DEPTH - 1:
@@ -180,6 +191,11 @@ class BlockParser(ScannerParser):
         spaces = m.group(1)
         marker = m.group(2)
         items, pos = _find_list_items(string, m.start(), spaces, marker)
+        print("start:",m)
+        print("start",items,pos)
+        spanarg = {}
+        spanarg["from"] = m.span()[0]
+        spanarg["to"] = pos
         tight = '\n\n' not in ''.join(items).strip()
 
         ordered = len(marker) != 1
@@ -197,24 +213,30 @@ class BlockParser(ScannerParser):
         depth = len(list_tights)
         rules = self.get_list_rules(depth)
         children = [
-            self.parse_list_item(item, depth, state, rules)
+            self.parse_list_item(item, depth, state, rules, spanarg)
             for item in items
         ]
         list_tights.pop()
         params = (ordered, depth, start)
-        token = {'type': 'list', 'children': children, 'params': params}
+        token = {'type': 'list', 'children': children, 'params': params, "span":{"from":m.span()[0],"to":pos}}
         return token, pos
 
-    def parse_list_item(self, text, depth, state, rules):
+    def parse_list_item(self, text, depth, state, rules, span):
+        len_text = len(text)
+        print("SSSS",text)
+        print(len_text)
         text = self.normalize_list_item_text(text)
+        old_from = span["from"]
+        span["from"] = span["from"] + len_text
         if not text:
-            children = [{'type': 'block_text', 'text': ''}]
+            children = [{'type': 'block_text', 'text': '', "span":{"from":old_from,"to":span["from"]}}]
         else:
-            children = self.parse(text, state, rules)
+            children = self.parse(text, state, rules, {"from":old_from,"to":span["from"]})
         return {
             'type': 'list_item',
             'params': (depth,),
             'children': children,
+            "span": {"from":old_from,"to":span["from"]}
         }
 
     @staticmethod
@@ -243,41 +265,56 @@ class BlockParser(ScannerParser):
 
     def parse_block_html(self, m, state):
         html = m.group(0).rstrip()
-        return {'type': 'block_html', 'raw': html}
+        spanarg = {}
+        spanarg["from"] = m.span()[0]
+        spanarg["to"] = m.span()[1]
+        return {'type': 'block_html', 'raw': html, "span":spanarg}
 
-    def parse_def_link(self, m, state, span):
+    def parse_def_link(self, m, state):
         key = unikey(m.group(1))
         link = m.group(2)
         title = m.group(3)
+        spanarg = {}
+        spanarg["from"] = m.span()[0]
+        spanarg["to"] = m.span()[1]
         if key not in state['def_links']:
-            state['def_links'][key] = (link, title, span)
+            state['def_links'][key] = (link, title, spanarg)
 
-    def parse_text(self, text, state, span, spanmapping, startindex):
+    def parse_text(self, text, state, spanmapping, startindex, span = None):
         list_tights = state.get('list_tights')
         if list_tights and list_tights[-1]:
-            return {'type': 'block_text', 'text': text.strip()}
+            return {'type': 'block_text', 'text': text.strip(), "span":span}
         tokens = []
         spanarg = {}
         print("STARTINDEX", startindex)
-        for s in _PARAGRAPH_SPLIT.split(text):
+        splits = _PARAGRAPH_SPLIT.split(text)
+        for s in splits:
             #s = s.strip()
             if s:
-                span["to"] = span["from"] + len(s)
-                if spanmapping:
+                print("SUBSTRINGPARSETEXT",s)
+                if len(spanmapping) > 0:
+                    print("spanmapping", spanmapping)
+                    print("startindex",startindex["startindex"])
                     spanarg = spanmapping[startindex["startindex"]]
-                    startindex["startindex"] += 1
+                    if startindex["startindex"]+1 < len(spanmapping):
+                        startindex["startindex"] += 1
+                    #table hack: there are still items in spanmapping although this is the last iteration, happends because matcher picks paragraphs
+                    #differently than parse_text, so we have to span from current startindex to last in spanmapping
+                    # check if current iteration is last
+                    if splits[-1] == s: 
+                        last_spanmap = spanmapping[-1]
+                        spanarg["to"] = last_spanmap["to"]
                 #tokens.append({'type': 'paragraph', 'text': s, "span":{"from":span["from"],"to":span["to"]}})
-                print("appending",spanarg)
+                print("appending",spanarg, s)
                 tokens.append({'type': 'paragraph', 'text': s, "span":spanarg})
-                span["from"] = span["to"]
                 spanarg = {}
         return tokens
 
-    def parse(self, s, state, rules=None):
+    def parse(self, s, state, rules=None, span=None):
         if rules is None:
             rules = self.rules
 
-        l = list(self._scan(s, state, rules))
+        l = list(self._scan(s, state, rules, span=span, d=1))
         print("P A R S E")
         print(l)
         print("P A R S E")
@@ -302,16 +339,23 @@ class BlockParser(ScannerParser):
             if 'children' in tok:
                 children = self.render(tok['children'], inline, state)
             elif 'raw' in tok:
+                print("RAW")
                 children = tok['raw']
             else:
+                print("before children tok", tok)
+                print("method before children",inline)
                 children = inline(tok['text'], state, tok["span"])
             params = tok.get('params')
             if params:
+                print("PARAMSMETHOD",method)
+                print("PARAMSTOKEN",tok)
                 p = method(children, *params, span=tok["span"])
                 print("PARAMS>",p)
                 yield p
             else:
-                m =  method(children,tok["span"])
+                print("NOPARAMAS METHOD",method)
+                print("TOK BEFORE METHOD",tok)
+                m =  method(children, span=tok["span"])
                 print("CHILDREN>",m)
                 yield m
 

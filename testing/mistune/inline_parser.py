@@ -108,7 +108,7 @@ class InlineParser(ScannerParser):
         rules.remove('ref_link2')
         self.ref_link_rules = rules
 
-    def parse_escape(self, m, state):
+    def parse_escape(self, m, state, span = None):
         text = m.group(0)[1:]
         return 'text', text
 
@@ -194,14 +194,17 @@ class InlineParser(ScannerParser):
             return 'emphasis', self.render(text, state, spanarg), spanarg
         return 'strong', self.render(text, state, spanarg), spanarg
 
-    def parse_codespan(self, m, state):
+    def parse_codespan(self, m, state, span):
         code = re.sub(r'[ \n]+', ' ', m.group(2).strip())
-        return 'codespan', code
+        spanarg = {}
+        spanarg["from"] = m.span()[0] + span["from"]
+        spanarg["to"] = m.span()[1] + span["from"]
+        return 'codespan', code, spanarg
 
     def parse_linebreak(self, m, state, span):
         return 'linebreak',
 
-    def parse_inline_html(self, m, state):
+    def parse_inline_html(self, m, state, span = None):
         html = m.group(0)
         return 'inline_html', html
 

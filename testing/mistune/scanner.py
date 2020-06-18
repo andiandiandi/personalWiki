@@ -20,7 +20,7 @@ class Scanner(re.Scanner):
                 yield text
 
             #corresponding inline parser method
-            print("METHOD",span)
+            print("METHOD",method,span)
             mm = method(match, state, span)
             yield mm
             pos = match.end()
@@ -55,8 +55,12 @@ class ScannerParser(object):
     def parse_text(self, text, state):
         raise NotImplementedError
 
-    def _scan(self, s, state, rules, span = None):
+    def _scan(self, s, state, rules, span = None, d = None):
         sc = self._create_scanner(rules)
+        if d:
+            print("DEBUG")
+            if type(sc) is not Matcher:
+                print("DEBUG2")
         if type(sc) == Matcher or 1:
             for tok in sc.iter(s, state, self.parse_text, span=span if span else {}):
                 if isinstance(tok, list):
@@ -100,35 +104,58 @@ class Matcher(object):
         if not m:
             return None
         if set(m.group(0)) == {'\n'}:
+            print("match is",m)
+            print("mgroup(0)",m.group(0))
             return m.end()
+        print("paragraph found:",m.start()+1)
         return m.start() + 1
 
     def iter(self, string, state, parse_text, span = None):
         pos = 0
         endpos = len(string)
+        secondIterCall = False
+        if span:
+            print("second call",span)
+            pos = span["from"]
+            endpos = span["to"]
+            secondIterCall = True
+            savespan = {"from":pos,"to":endpos}
+        else:
+            print("first call")
         last_end = 0
         span = {"from":0,"to":0}
         spanmapping = []
         startindex = {"startindex":0}
         while 1:
+            print("searching:",pos)
             if pos >= endpos:
                 break
             for rule, (name, method) in self.lexicon:
                 match = rule.match(string, pos)
                 if match is not None:
+                    print("match found",match)
                     start, end = match.span()
-
                     if start > last_end:
-                        span["from"] = last_end
-                        span["to"] = start
-                        yield parse_text(string[last_end:start], state, span, spanmapping, startindex)
+                        
+                        if not secondIterCall:
+                            span["from"] = last_end
+                            span["to"] = start
+                        else:
+                            span["from"] = pos
+                            span["to"] = endpos
+                        print("before parse text")
+                        print("span",span)
+                        yield parse_text(string[last_end:start], state, spanmapping, startindex, span=span)
+                        print("startindex after", startindex)
 
                     if name.endswith('_start'):
+                        print("_start", method)
                         token = method(match, state, string)
                         yield token[0]
                         end = token[1]
                     else:
-                        yield method(match, state, span)
+                        print("MMMMM",method)
+                        yield method(match, state)
                     last_end = pos = end
                     span["from"] = pos
                     break
@@ -140,12 +167,18 @@ class Matcher(object):
                 pos = found
                 span["to"] = found
                 spanmapping.append({"from":span["from"],"to":span["to"]})
-
+                print("appending new",{"from":span["from"],"to":span["to"]})
+                print("spanmapping now",spanmapping)
 
         if last_end < endpos:
-            span["to"] = len(string)
+            if not secondIterCall:
+                span["to"] = len(string)
+            else:
+                span["to"] = savespan["to"]
             spanmapping.append({"from":span["from"],"to":span["to"]})
-            yield parse_text(string[last_end:], state, span, spanmapping, startindex)
+            print("appended,spanmapping no:",spanmapping)
+            yield parse_text(string[last_end:], state, spanmapping, startindex, span=span)
+            print("startindex2 after", startindex)
 
         print("MATCHER",spanmapping)
 
