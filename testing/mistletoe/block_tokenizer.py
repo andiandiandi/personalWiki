@@ -4,44 +4,6 @@ Block-level tokenizer for mistletoe.
 from mistletoe import lineManager
 from mistletoe import block_token
 
-stack = None
-linenum = -1
-
-class Stack(object):
-	def __init__(self, name):
-		self.items = []
-		self.name = name
-
-	def push(self, item):
-		print("adding to stack",item)
-		self.items.append(item)
-
-	def pop(self):
-		return self.items.pop()
-
-	def peek(self):
-		if not self.items:
-			return None
-		return self.items[-1]
-	
-	def clearToFirst(self):
-		while self.size() > 1:
-			self.pop()
-
-	def clear(self):
-		self.items = []
-
-	def print(self):
-		for x in self.items:
-			if type(x) == Stack:
-				x.print()
-			else:
-				print(name,x)
-
-	def isEmpty(self):
-		return len(self.items) == 0
-
-
 class FileWrapper:
 	def __init__(self, lines):
 		self.lines = lines if isinstance(lines, list) else list(lines)
@@ -88,12 +50,7 @@ def tokenize(iterable, token_types):
 	Returns:
 		block-level token instances.
 	"""
-	global stack
-	stack = Stack("master")
 	a = tokenize_block(iterable, token_types, {"start":1,"read":0})
-	stack = None
-	global linenum
-	linenum = 0
 	b = make_tokens(a)
 	return b
 
@@ -111,26 +68,17 @@ def tokenize_block(iterable, token_types, span = None):
 
 
 	while line is not None:
-		print("parsing line",line)
-		print("line is at index",lines.index()+2)
 		for token_type in token_types:
 			if token_type.start(line):
 				spannew = {"start":span["start"] + span["read"],"read":0}
-				print("calling result with spannew",spannew)
-				print("t",token_type)
 				result = token_type.read(lines, spannew)
 				if result is not None:
-					print("result for line calculated",line)
-					print("spannew after result",spannew)
-					parse_buffer.append((token_type, result,{"start":spannew["start"]," read": spannew["read"]}))
+					parse_buffer.append((token_type, result,{"start":spannew["start"],"read": spannew["read"]}))
 					span["read"] += spannew["read"]
-					print("updating span",span)
-					print("after updating span is now", span)
 					break
 		else:  # unmatched newlines
 			next(lines)
 			span["read"] = lines.index() + 1
-			print("no lines found, span is now", span)
 			parse_buffer.loose = True
 		line = lines.peek()
 
@@ -148,8 +96,8 @@ def make_tokens(parse_buffer):
 	"""
 	tokens = []
 	for token_type, result, span in parse_buffer:
-		print(token_type,span)
-		token = token_type(result)
+		#print(token_type)
+		token = token_type(result, span)
 		if token is not None:
 			tokens.append(token)
 	return tokens

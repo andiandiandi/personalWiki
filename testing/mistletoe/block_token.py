@@ -296,13 +296,14 @@ class Paragraph(BlockToken):
     """
     setext_pattern = re.compile(r' {0,3}(=|-)+ *$')
     parse_setext = True  # can be disabled by Quote
-    def __new__(cls, lines):
+    def __new__(cls, lines, span):
         if not isinstance(lines, list):
             # setext heading token, return directly
             return lines
         return super().__new__(cls)
 
-    def __init__(self, lines):
+    def __init__(self, lines, span):
+        self.span = span
         content = ''.join([line.lstrip() for line in lines]).strip()
         super().__init__(content, span_token.tokenize_inner)
 
@@ -475,7 +476,8 @@ class List(BlockToken):
         start (NoneType or int): None if unordered, starting number if ordered.
     """
     pattern = re.compile(r' {0,3}(?:\d{0,9}[.)]|[+\-*])(?:[ \t]*$|[ \t]+)')
-    def __init__(self, matches):
+    def __init__(self, matches, span):
+        self.span = span
         self.children = [ListItem(*match) for match in matches]
         self.loose = any(item.loose for item in self.children)
         leader = self.children[0].leader
@@ -494,11 +496,8 @@ class List(BlockToken):
         matches = []
         while True:
             spannew = {"start":span["start"] + span["read"],"read":0}
-            print("calling listitem.read with span", spannew)
             output, next_marker = ListItem.read(lines, next_marker, spannew)
-            print("returning from listitem.read with span",spannew)
             span["read"] += spannew["read"]
-            print("span in list is now",span)
             item_leader = output[2]
             if leader is None:
                 leader = item_leader
@@ -589,7 +588,7 @@ class ListItem(BlockToken):
             line_buffer.append(line[prepend:])
         next_line = lines.peek()
         if empty_first_line and next_line is not None and next_line.strip() == '':
-            raise ValueError('IN LIST!')
+            raise ValueError('IN LISTITEM!')
             parse_buffer = tokenizer.tokenize_block([next(lines)], _token_types, index = index, test="a")
             next_line = lines.peek()
             if next_line is not None:
@@ -641,9 +640,7 @@ class ListItem(BlockToken):
         # block-level tokens are parsed here, so that footnotes can be
         # recognized before span-level parsing.
 
-        print("listitem calls tokenizer with span", span)
         parse_buffer = tokenizer.tokenize_block(line_buffer, _token_types, span)
-        print("listitem returns from tokenizer with span", span)
 
         return (parse_buffer, prepend, leader), next_marker
 
@@ -750,7 +747,7 @@ class Footnote(BlockToken):
     """
     label_pattern = re.compile(r'[ \n]{0,3}\[(.+?)\]', re.DOTALL)
 
-    def __new__(cls, _):
+    def __new__(cls, _, span):
         return None
 
     @classmethod

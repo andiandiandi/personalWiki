@@ -26,4 +26,5 @@ class Content(Model):
 	textdict = CharField()
 	textlinks = CharField()
 	imagelinks = CharField()
+	footnotes = CharField()
 	fileid = ForeignKeyField(File)

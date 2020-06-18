@@ -17,7 +17,7 @@ class ASTRenderer(BaseRenderer):
     def __getattr__(self, name):
         return lambda token: ''
 
-def get_ast(token):
+def get_ast(token, span = None):
     """
     Recursively unrolls token attributes into dictionaries (token.children
     into lists).
@@ -34,8 +34,17 @@ def get_ast(token):
     #   [2]: https://github.com/syntax-tree/mdast
     node['type'] = token.__class__.__name__
     node.update(token.__dict__)
+    if span:
+        node["span"] = {"start":span["start"],"read":span["read"]}
+        if node["type"] is "LineBreak":
+            span["start"] += 1
     if 'header' in node:
         node['header'] = get_ast(node['header'])
     if 'children' in node:
-        node['children'] = [get_ast(child) for child in node['children']]
+        if "span" in node:
+            spanarg = {"start": node["span"]["start"], "read":  1}
+            node['children'] = [get_ast(child, span = spanarg) for child in node['children']]
+        else:
+             node['children'] = [get_ast(child) for child in node['children']]
+
     return node

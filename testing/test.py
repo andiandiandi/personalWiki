@@ -14,26 +14,44 @@ from mistletoe.ast_renderer import ASTRenderer
 Models = [models.File,models.Folder,models.Content]
 
 def list_of_imagelinks(md_ast):
-	image_objs = []
-	for entry in md_ast:
-		if "type" in entry:
-			if entry["type"] == "image":
-				image_objs.append(entry)
-		if "children" in entry:
-			image_objs += list_of_imagelinks(entry["children"])
+	objs = []
+	if "type" in md_ast:
+		if md_ast["type"] == "Image":
+			objs.append(md_ast)
+	if "children" in md_ast:
+		for child in md_ast["children"]:
+			objs += list_of_imagelinks(child)
 
-	return image_objs
+	return objs
 
 def list_of_textlinks(md_ast):
-	image_objs = []
-	for entry in md_ast:
-		if "type" in entry:
-			if entry["type"] == "link":
-				image_objs.append(entry)
-		if "children" in entry:
-			image_objs += list_of_textlinks(entry["children"])
+	objs = []
+	if "type" in md_ast:
+		if "Link" in md_ast["type"]:
+			objs.append(md_ast)
+	if "children" in md_ast:
+		for child in md_ast["children"]:
+			objs += list_of_textlinks(child)
 
-	return image_objs
+	return objs
+
+def extract_footnote_information(name,footnote_ast):
+	return 
+
+
+def list_of_footnotes(md_ast,footnotes = False):
+	objs = []
+	if not footnotes:
+		if "footnotes" in md_ast:
+			objs += list_of_footnotes(md_ast["footnotes"],footnotes = True)
+	else:
+		for footnote in md_ast:
+			footnote_ast = md_ast[footnote]
+			target = footnote_ast[0] if 0 <= 0 < len(footnote_ast) else ""
+			title = footnote_ast[1] if 0 <= 1 < len(footnote_ast) else ""
+			objs.append({"name":footnote, "target":target, "title":title})
+
+	return objs
 
 def parseText(md_ast, d = None, p = 0):
 	if d is None:
@@ -75,19 +93,15 @@ def initProject(db,model_dict, jsondata, parentID = None):
 		extension = os.path.splitext(full_path)[1]
 		path = os.path.dirname(full_path)
 		persisted_file = model_dict["file"].create(name=basename_no_extension,extension=extension,path=path, fullpath=full_path,folderid=parentID)
-
 		tree = parseContentMistletoe(file["content"])
 		#textdict = json.dumps(parseText(tree))
-		#imagelinks = json.dumps(list_of_imagelinks(tree))
-		#textlinks = json.dumps(list_of_textlinks(tree))
+		imagelinks = json.dumps(list_of_imagelinks(json.loads(tree)))
+		textlinks = json.dumps(list_of_textlinks(json.loads(tree)))
 		textdict = ""
-		textlinks = ""
-		imagelinks = ""
-		model_dict["content"].create(textdict = textdict, textlinks=textlinks,imagelinks=imagelinks,fileid=persisted_file.id)
-		return
+		footnotes = json.dumps(list_of_footnotes(json.loads(tree)))
+		c = model_dict["content"].create(textdict = textdict, textlinks=textlinks,imagelinks=imagelinks,footnotes = footnotes, fileid=persisted_file.id)
 	#fill folder table
 	for subfolder in subfolders:
-		pass
 		initProject(db,model_dict,subfolder,parentID)
 
 class DbWrapper:
@@ -151,25 +165,25 @@ class DbWrapper:
 	def getFile(self,id):
 		with self.db.bind_ctx(Models):
 			r = models.File.get_by_id(models.File.id==id)
+			return r
 
 	def query(self,id):
 		with self.db.bind_ctx(Models):
-			query = models.Content.select(models.Content.textdict,models.Content.textlinks,models.Content.imagelinks).join(models.File).where(models.File.id==0)
+			query = models.Content.select(models.Content.textdict,models.Content.textlinks,models.Content.imagelinks,models.Content.footnotes).join(models.File).where(models.File.id==id)
 			for row in query:
-				pass
+				print(row.textlinks)
+				print("______________")
+				print(row.imagelinks)
+				print("___________")
+				print(row.footnotes)
 
 w = DbWrapper()
 w.create_connection()
 w.prepare_tables()
 
-jsondata = {"type": "folder", "files": [{"content": "- First item\n- Second item\n- Third item\n    - Indented item\n    - Indented item\n- Fourth item\n\n\njo\nfetten\n\ntest", "path": "C:\\Users\\Andre\\Desktop\\testwiki\\asd.md"}, {"content": "", "path": "C:\\Users\\Andre\\Desktop\\testwiki\\test.py"}], "folders": [{"type": "folder", "files": [], "folders": [], "name": "wikiconfig"}], "name": "testwiki"}
+jsondata = {"type": "folder", "files": [{"content": "[I'm an inline-style link](https://www.google.com)\n\n[I'm an inline-style link with title](https://www.google.com \"Google's Homepage\")\nInline-style: \n![alt text](https://github.com/adam-p/markdown-here/raw/master/src/common/images/icon48.png \"Logo Title Text 1\")\n\n[I'm a reference-style link][Arbitrary case-insensitive reference text]\n\n[I'm a relative reference to a repository file](../blob/master/LICENSE)\n\n[You can use numbers for reference-style link definitions][1]\n\nReference-style: \n![alt text][logo]\n\nOr leave it empty and use the [link text itself].\n\nURLs and URLs in angle brackets will automatically get turned into links. \nhttp://www.example.com or <http://www.example.com> and sometimes \nexample.com (but not on Github, for example).\n\nSome text to show that the reference links can follow later.\n\nHere's our logo (hover to see the title text):\n\n\n\n\n\n\n\n[arbitrary case-insensitive reference text]: https://www.mozilla.org\n[1]: http://slashdot.org\n[link text itself]: http://www.reddit.com\n[logo]: https://github.com/adam-p/markdown-here/raw/master/src/common/images/icon48.png \"Logo Title Text 2\"", "path": "C:\\Users\\Andre\\Desktop\\testwiki\\asd.md"}, {"content": "", "path": "C:\\Users\\Andre\\Desktop\\testwiki\\test.py"}], "folders": [{"type": "folder", "files": [], "folders": [], "name": "wikiconfig"}], "name": "testwiki"}
 
 
 
 w.initProject(jsondata)
-
-#todo
-#json1 für sqlite
-#oder
-       
-#iwie stringify links
+w.query(1)
