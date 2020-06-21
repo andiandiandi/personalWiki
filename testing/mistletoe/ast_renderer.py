@@ -34,6 +34,7 @@ def get_ast(token, span = None):
     #   [2]: https://github.com/syntax-tree/mdast
     node['type'] = token.__class__.__name__
     node.update(token.__dict__)
+
     if span:
         node["span"] = {"start":span["start"],"read":span["read"]}
         if node["type"] is "LineBreak":

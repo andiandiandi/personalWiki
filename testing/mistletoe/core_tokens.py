@@ -166,7 +166,7 @@ def match_link_image(string, offset, delimiter, root=None):
         # full footnote link
         result = match_link_label(string, offset+1, root)
         if result:
-            match_info, (dest, title) = result
+            match_info, (dest, title, span) = result
             end = match_info[1]
             match = MatchObj(start, end,
                               (text_start, text_end, text),
@@ -190,7 +190,7 @@ def match_link_image(string, offset, delimiter, root=None):
     # shortcut footnote link
     ref = is_link_label(text, root)
     if ref:
-        dest, title = ref
+        dest, title ,span = ref
         end = offset + 1
         match = MatchObj(start, end,
                           (text_start, text_end, text),

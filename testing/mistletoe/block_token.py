@@ -48,8 +48,8 @@ def tokenize(lines):
 
     See also: block_tokenizer.tokenize, span_token.tokenize_inner.
     """
-    return tokenizer.tokenize(lines, _token_types)
-
+    a = tokenizer.tokenize(lines, _token_types)
+    return a
 
 def add_token(token_cls, position=0):
     """
@@ -154,7 +154,6 @@ class Document(BlockToken):
         span_token._root_node = None
         _root_node = None
 
-
 class Heading(BlockToken):
     """
     Heading token. (["### some heading ###\\n"])
@@ -167,7 +166,8 @@ class Heading(BlockToken):
     pattern = re.compile(r' {0,3}(#{1,6})(?:\n|\s+?(.*?)(?:\n|\s+?#+\s*?$))')
     level = 0
     content = ''
-    def __init__(self, match):
+    def __init__(self, match, span):
+        self.span = span
         self.level, content = match
         super().__init__(content, span_token.tokenize_inner)
 
@@ -212,8 +212,9 @@ class Quote(BlockToken):
     """
     Quote token. (["> # heading\\n", "> paragraph\\n"])
     """
-    def __init__(self, parse_buffer):
+    def __init__(self, parse_buffer, span):
         # span-level tokenizing happens here.
+        self.span = span
         self.children = tokenizer.make_tokens(parse_buffer)
 
     @staticmethod
@@ -750,6 +751,9 @@ class Footnote(BlockToken):
     def __new__(cls, _, span):
         return None
 
+    def __init__(self,span):
+        self.span = span
+
     @classmethod
     def start(cls, line):
         return line.lstrip().startswith('[')
@@ -771,7 +775,7 @@ class Footnote(BlockToken):
                 break
             offset, match = match_info
             matches.append(match)
-        cls.append_footnotes(matches, _root_node)
+        cls.append_footnotes(matches, _root_node,span)
         return matches or None
 
     @classmethod
@@ -893,13 +897,16 @@ class Footnote(BlockToken):
         return None
 
     @staticmethod
-    def append_footnotes(matches, root):
+    def append_footnotes(matches, root, span):
+        offset = 0
         for key, dest, title in matches:
             key = normalize_label(key)
             dest = span_token.EscapeSequence.strip(dest.strip())
             title = span_token.EscapeSequence.strip(title)
             if key not in root.footnotes:
-                root.footnotes[key] = dest, title
+                root.footnotes[key] = dest, title , {"start":span["start"] + offset, "read": 1}
+                offset +=1
+
 
     @staticmethod
     def backtrack(lines, string, offset):

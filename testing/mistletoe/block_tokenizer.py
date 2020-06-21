@@ -96,7 +96,6 @@ def make_tokens(parse_buffer):
 	"""
 	tokens = []
 	for token_type, result, span in parse_buffer:
-		#print(token_type)
 		token = token_type(result, span)
 		if token is not None:
 			tokens.append(token)

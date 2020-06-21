@@ -3,6 +3,7 @@ from .peewee.playhouse.sqlite_ext import *
 
 db = None
 
+
 class BaseModel(Model):
 	class Meta:
 		database = db
@@ -17,7 +18,6 @@ class File(BaseModel):
 	name = CharField()
 	extension = CharField()
 	path = CharField()
-	fullpath = CharField()
 	folderid = ForeignKeyField(Folder)
 
 class Content(Model):
@@ -26,5 +26,9 @@ class Content(Model):
 	textdict = CharField()
 	textlinks = CharField()
 	imagelinks = CharField()
+	headers = CharField()
 	footnotes = CharField()
 	fileid = ForeignKeyField(File)
+
+
+modellist = [File,Folder,Content]
