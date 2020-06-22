@@ -76,12 +76,6 @@ def parseText(md_ast, d = None, p = 0):
 						d[s[0]].append((s,p))
 	return d
 
-def parseContent(content):
-	markdown = mistune.create_markdown(renderer=mistune.AstRenderer())
-	tree = markdown(content)
-	print(tree)
-	return treeb
-
 def parseContentMistletoe(content):
 	tree = mistletoe.markdown(content, ASTRenderer)
 	#print(tree)
@@ -234,7 +228,7 @@ jsondata = {"type": "folder", "folders": [{"type": "folder", "folders": [], "nam
 
 jsonsearch = {"files":{"negate":False,"values":["asd.md"]},"element":{"negate":False, "value":"headers"},"values":[{"attribute":"content","negate":False,"value":"headertest"}]}
 
-def gosearch(jsondata,w):
+def runSearchQuery(jsondata,w):
 	print(jsondata)
 	print()
 	if "files" in jsondata and "element" in jsondata and "values" in jsondata:
@@ -246,6 +240,6 @@ def gosearch(jsondata,w):
 		raise Exception('"files" or "values" key not existent')
 
 w.initProject(jsondata)
-ret = gosearch(jsonsearch,w)
+ret = runSearchQuery(jsonsearch,w)
 #
 print(ret)

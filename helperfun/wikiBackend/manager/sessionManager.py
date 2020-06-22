@@ -12,34 +12,43 @@ _zombieCollector = None
 
 ############## session related #######################
 
-def add_wiki(wiki):
-	if not wiki.sid in wikis:
-		wikis[wiki.sid] = wiki
-
-def remove_wiki(wiki, sid=None):
-	if wiki:
-		del wikis[wiki.sid]
+def register(sid,socket):
+	if not sid in wikis:
+		wiki = Wiki(sid,socket)
+		wikis[sid] = wiki
+		return True
 	else:
+		return False
+
+def remove(sid):
+	if sid in wikis:
 		del wikis[sid]
 
 def wiki(sid):
-	if wikis[sid]:
+	if sid in wikis:
 		return wikis[sid]
 	else:
 		return None
 
 class Wiki:
-	def __init__(self,sid, db = None):
+	def __init__(self,sid,socket):
 		self.sid = sid
-		self.db = db if db else None
+		self.socket = socket
+		self.dbWrapper = None
+		self.dbInit = False
 
-	def initialize_db(self, json_project_structure):
-		if not self.db:
-			self.db = databaseManager.DbWrapper(self)
-			self.db.create_connection()
-		self.db.initialize(json_project_structure)
+	def initializeDb(self, json_project_structure):
+		self.dbWrapper = databaseManager.DbWrapper(self)
+		self.dbInit = self.dbWrapper.create_connection()
+		
+		if self.dbInit:
+			self.dbWrapper.prepareTables()
+			self.dbWrapper.initializeProject(json_project_structure)
+		return self.dbInit
 
+	def send(self,event,jsondata):
+		self.socket.emit(event,jsondata,room=self.sid)
 
-################## cleanup #####################
-def clean_up():
-	wikis = None
+	def __del__(self):
+		if self.dbWrapper:
+			del self.dbWrapper
