@@ -23,11 +23,11 @@ def on_connect(sid,Socket):
 def on_disconnect(sid):
 	sessionManager.remove(sid)
 
-def on_initdb(sid,json_project_structure):
+def on_initializeProject(sid,root_folder,json_project_structure):
 	wiki = get(sid)
-	initialized = wiki.initializeDb(json_project_structure)
+	initialized = wiki.initializeProject(root_folder,json_project_structure)
 	if not initialized:
-		error("you have to connect to server first", sid)
+		error("something went wrong while initializing project", sid)
 
 def on_search(sid,query):
 	wiki = get(sid)
@@ -35,6 +35,6 @@ def on_search(sid,query):
 		result = wiki.dbWrapper.runSearchQuery(query)
 		wiki.send("search",result)
 	else:
-		error("you have to initialie the database first", sid)
+		error("you have to initialize the database first", sid)
 
 

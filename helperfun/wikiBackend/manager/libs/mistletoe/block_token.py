@@ -428,7 +428,8 @@ class CodeFence(BlockToken):
     """
     pattern = re.compile(r'( {0,3})((?:`|~){3,}) *(\S*)')
     _open_info = None
-    def __init__(self, match):
+    def __init__(self, match, span):
+        self.span = span
         lines, open_info = match
         self.language = span_token.EscapeSequence.strip(open_info[2])
         self.children = (span_token.RawText(''.join(lines)),)

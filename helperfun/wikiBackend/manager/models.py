@@ -13,13 +13,13 @@ class Folder(BaseModel):
 
 class File(BaseModel):
 	id = AutoField()
+	fullpath = CharField()
 	name = CharField()
 	extension = CharField()
-	path = CharField()
-	folderid = ForeignKeyField(Folder)
+	relpath = CharField()
+	lastmodified = FloatField()
 
 class Content(Model):
-	# Full-text search index.
 	id = AutoField()
 	textdict = CharField()
 	textlinks = CharField()

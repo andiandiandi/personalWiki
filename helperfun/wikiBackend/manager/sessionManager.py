@@ -36,15 +36,21 @@ class Wiki:
 		self.socket = socket
 		self.dbWrapper = None
 		self.dbInit = False
+		self.root_folder = None
 
-	def initializeDb(self, json_project_structure):
+	#returns false when something goes wrong
+	def initializeProject(self, root_folder, json_project_structure):
+		self.root_folder = root_folder
 		self.dbWrapper = databaseManager.DbWrapper(self)
-		self.dbInit = self.dbWrapper.create_connection()
+		self.dbConnectionEstablished = self.dbWrapper.create_connection()
 		
-		if self.dbInit:
-			self.dbWrapper.prepareTables()
-			self.dbWrapper.initializeProject(json_project_structure)
-		return self.dbInit
+		if self.dbConnectionEstablished:
+			noerror = self.dbWrapper.checkIndex(json_project_structure)
+			self.dbInit = True
+			if noerror:
+				return True
+
+		return False
 
 	def send(self,event,jsondata):
 		self.socket.emit(event,jsondata,room=self.sid)

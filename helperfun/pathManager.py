@@ -24,7 +24,7 @@ def root_folder(window = None):
 		return variables['folder']
 	return None
 
-#top most root folder of the window that view sits in
+#top most root folder of the window that the view sits in
 def root_folder_of_view(view):
 	variables = view.window().extract_variables()
 	if variables and 'folder' in variables:
@@ -60,20 +60,24 @@ def resolve_relative_path(base_path,relative_navigation):
 def path_to_plugin_folder():
 	return resolve_relative_path(path_to_helperfun(),"..")
 
-def createFile(file,path):
+def createFile(full_path):
 	d = {}
-	full_path =  os.path.join(path,file)
 	d["path"] = full_path
 	d["content"] = open(full_path, 'r', encoding='utf8').read()
-	print(d["content"])
+	d["lastmodified"] = os.path.getmtime(full_path)
 	return d
 
 def path_to_dict(path):
 	d = None
 	if os.path.isdir(path):
-		d = {'name': os.path.basename(path)}
-		d['type'] = "folder"
-		d['folders'] = [path_to_dict(os.path.join(path,x)) for x in os.listdir(path) if os.path.isdir(os.path.join(path,x))]
-		d['files'] = [createFile(f,path) for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
+		if os.path.basename(path) != "wikiconfig":
+			d = {'name': os.path.basename(path) }
+			d['type'] = "folder"
+			directFolders = [path_to_dict(os.path.join(path,x)) for x in os.listdir(path) if os.path.isdir(os.path.join(path,x))]
+			d['folders'] = []
+			for folder in directFolders:
+				if folder:
+					d['folders'].append(folder)
+			d['files'] = [createFile(os.path.join(path,f)) for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
 	return d
 

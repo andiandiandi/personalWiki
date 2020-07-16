@@ -82,31 +82,15 @@ def parseContentMistletoe(content):
 	#print(tree)
 	return tree
 
+def extractFiles(jsondata):
+	f = []
+	if "files" in jsondata:
+		f += jsondata["files"]
+	if "folders" in jsondata:
+		for folder in jsondata["folders"]:
+			f += extractFiles(folder)
 
-def initProject(db,model_dict, jsondata, parentID = None):
-	persisted_Folder = model_dict["folder"].create(name=jsondata["name"],parentid=parentID)
-	parentID = persisted_Folder.id
-	subfolders = jsondata["folders"]
-	files = jsondata["files"]
-	#fill file table
-	for file in files:
-		full_path = file["path"]
-		basename_no_extension = os.path.splitext(os.path.basename(full_path))[0]
-		extension = os.path.splitext(full_path)[1]
-		path = os.path.dirname(full_path)
-		persisted_file = model_dict["file"].create(name=basename_no_extension,extension=extension,path=path, folderid=parentID)
-
-		tree = parseContentMistletoe(file["content"])
-		#textdict = json.dumps(parseText(tree))
-		imagelinks = json.dumps(list_of_imagelinks(json.loads(tree)))
-		textlinks = json.dumps(list_of_textlinks(json.loads(tree)))
-		textdict = ""
-		headers = json.dumps(list_of_headers(json.loads(tree)))
-		footnotes = json.dumps(list_of_footnotes(json.loads(tree)))
-		c = model_dict["content"].create(textdict = textdict, textlinks=textlinks,imagelinks=imagelinks,headers = headers, footnotes = footnotes, fileid=persisted_file.id)
-	#fill folder table
-	for subfolder in subfolders:
-		initProject(db,model_dict,subfolder,parentID)
+	return f
 
 class DbWrapper:
 	def __init__(self,wiki):
@@ -119,7 +103,7 @@ class DbWrapper:
 
 	def create_connection(self):
 		try:
-			self.db = SqliteExtDatabase(":memory:")
+			self.db = SqliteExtDatabase(os.path.join(self.wiki.root_folder,"wikiconfig","wiki.db"))
 			self.db.connect()
 		except Exception as e:
 			print(e)
@@ -127,25 +111,112 @@ class DbWrapper:
 
 		return self.hasConnection()
 
-	def prepareTables(self):
-		self.droptTables()
+	def resetTables(self):
+		self.dropTables()
 		self.createTables()
 
 	def hasConnection(self):
 		return bool(self.db)
 
-	def droptTables(self):
-		print(models.modellist)
+	def checkIndex(self,json_project_structure):
+		filesJson = extractFiles(json_project_structure)
+
+
+		#self.dropTables()
+		self.createTables()
+
+		dbFiles = self.selFiles()
+
+		for dbFile in list(dbFiles):
+			try:
+				for file in list(filesJson):
+					fullPath = file["path"]
+					if dbFile.fullpath == fullPath:
+						upToDate = file["lastmodified"] == dbFile.lastmodified
+						if not upToDate:
+							self.updateFile(dbFile.id,file)
+							print("updated",file["path"])
+							print(models.Content.get(models.Content.fileid == dbFile.id).headers)
+						else:
+							print("file is up to date",file["path"])
+							print(models.Content.get(models.Content.fileid == dbFile.id).headers)
+
+						filesJson.remove(file)
+						dbFiles.remove(dbFile)
+						break
+			except Exception as ex:
+				print("exception happened in checkindex",ex)
+				return False
+
+
+		#leftovers in db
+		if dbFiles:
+			for f in dbFiles:
+				print("deleting leftover",f.fullpath)
+				associatedContent = models.Content.get(models.Content.fileid == f.id)
+				f.delete_instance()
+				associatedContent.delete_instance()
+
+
+		if filesJson:
+			for f in filesJson:
+				print("inserting new file",f["path"])
+				self.insertFile(f)
+
+		return True
+
+	def saveFile(self,jsonfile):
+		file = models.File.get_or_none(models.File.fullpath == jsonfile["path"])
+		if file:
+			self.updateFile(file.id,jsonfile)
+		else:
+			self.insertFile(jsonfile)
+
+	def dropTables(self):
 		with self.db.bind_ctx(models.modellist):
 			self.db.drop_tables(models.modellist)
 
 	def createTables(self):
 		with self.db.bind_ctx(models.modellist):
-			self.db.create_tables(models.modellist)
+			self.db.create_tables(models.modellist, safe=True)
 
 	def initializeProject(self,json):
 		with self.db.bind_ctx(models.modellist):
 			initProject(self.db,self.modeldict,json)
+
+	def updateFile(self,fileid,jsonfile):
+		with self.db.bind_ctx(models.modellist):
+			fileupdateQuery = models.File.update(lastmodified = jsonfile["lastmodified"]).where(models.File.id == fileid)
+			rows = fileupdateQuery.execute()
+			if rows > 0:
+				tree = parseContentMistletoe(jsonfile["content"])
+				#textdict = json.dumps(parseText(tree))
+				imagelinks = json.dumps(list_of_imagelinks(json.loads(tree)))
+				textlinks = json.dumps(list_of_textlinks(json.loads(tree)))
+				textdict = ""
+				headers = json.dumps(list_of_headers(json.loads(tree)))
+				footnotes = json.dumps(list_of_footnotes(json.loads(tree)))
+				contentupdateQuery = models.Content.update(textdict = textdict, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes).where(models.Content.fileid == fileid)
+				contentupdateQuery.execute()
+
+
+	def insertFile(self,jsonfile):
+		fullpath = jsonfile["path"]
+		basename_no_extension = os.path.splitext(os.path.basename(fullpath))[0]
+		extension = os.path.splitext(fullpath)[1]
+		relpath = os.path.dirname(fullpath)
+		lastmodified = jsonfile["lastmodified"]
+		#persisted_file = self.modeldict["jsonfile"].create(fullpath = fullpath, name=basename_no_extension,extension=extension,relpath=relpath, lastmodified = lastmodified, folderid=parentID)
+		persisted_file = self.modeldict["file"].create(fullpath = fullpath, name=basename_no_extension,extension=extension,relpath=relpath, lastmodified = lastmodified)
+
+		tree = parseContentMistletoe(jsonfile["content"])
+		#textdict = json.dumps(parseText(tree))
+		imagelinks = json.dumps(list_of_imagelinks(json.loads(tree)))
+		textlinks = json.dumps(list_of_textlinks(json.loads(tree)))
+		textdict = ""
+		headers = json.dumps(list_of_headers(json.loads(tree)))
+		footnotes = json.dumps(list_of_footnotes(json.loads(tree)))
+		c = self.modeldict["content"].create(textdict = textdict, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes, fileid=persisted_file.id)
 
 	def selFolders(self):
 		with self.db.bind_ctx(models.modellist):
@@ -159,19 +230,56 @@ class DbWrapper:
 	def selFiles(self):
 		with self.db.bind_ctx(models.modellist):
 			r = models.File.select()
+			l = []
 			for f in r:
-				print("id",f.id)
-				print("name",f.name)
-				print("ext",f.extension)
-				print("path",f.path)
-				#print("full",f.fullpath)
-				print("folderid:",f.folderid)
-				print("___________________________")
+				#print("id",f.id)
+				#print("name",f.name)
+				#print("ext",f.extension)
+				#print("path",f.relpath)
+				print("full",f.fullpath)
+				#print("folderid:",f.folderid)
+				#print("___________________________")
+				l.append(f)
+			return l
 
-	def getFile(self,id):
+	def getFile(self,fullPath, id = None):
 		with self.db.bind_ctx(models.modellist):
-			r = models.File.get_by_id(models.File.id==id)
-			return r
+			if id:
+				query = models.File.get_by_id(models.File.id==id)
+				if query.exists():
+					return query
+			else:
+				file = models.File.get_or_none(models.File.fullpath == fullPath)
+				if file:
+					return file
+				return None
+
+	def initProject(self,db, jsondata, parentID = None):
+		persisted_Folder = self.modeldict["folder"].create(name=jsondata["name"],parentid=parentID)
+		parentID = persisted_Folder.id
+		subfolders = jsondata["folders"]
+		files = jsondata["files"]
+		#fill file table
+		for file in files:
+			fullpath = file["path"]
+			basename_no_extension = os.path.splitext(os.path.basename(fullpath))[0]
+			extension = os.path.splitext(fullpath)[1]
+			relpath = os.path.dirname(fullpath)
+			lastmodified = file["lastmodified"]
+			#persisted_file = self.modeldict["file"].create(fullpath = fullpath, name=basename_no_extension,extension=extension,relpath=relpath, lastmodified = lastmodified, folderid=parentID)
+			persisted_file = self.modeldict["file"].create(fullpath = fullpath, name=basename_no_extension,extension=extension,relpath=relpath, lastmodified = lastmodified)
+
+			tree = parseContentMistletoe(file["content"])
+			#textdict = json.dumps(parseText(tree))
+			imagelinks = json.dumps(list_of_imagelinks(json.loads(tree)))
+			textlinks = json.dumps(list_of_textlinks(json.loads(tree)))
+			textdict = ""
+			headers = json.dumps(list_of_headers(json.loads(tree)))
+			footnotes = json.dumps(list_of_footnotes(json.loads(tree)))
+			c = self.modeldict["content"].create(textdict = textdict, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes, fileid=persisted_file.id)
+		#fill folder table
+		for subfolder in subfolders:
+			initProject(db,self.modeldict,subfolder,parentID)
 
 	def query(self,id):
 		with self.db.bind_ctx(models.modellist):

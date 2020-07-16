@@ -1,15 +1,19 @@
 [
 
     {
-        "caption": "Initialize project as a Wiki",
+        "caption": "connect to wiki server",
         "command": "init_wiki"
     },
     {
-        "caption": "Debug project as a Wiki",
+        "caption": "initialize wiki project",
         "command": "debug_init"
     },
      {
         "caption": "Debug2 project as a Wiki",
         "command": "debug_debug_init"
+    },
+    {
+        "caption": "searchQuery Debug",
+        "command": "search_query_debug"
     }
 ]
