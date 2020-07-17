@@ -117,5 +117,4 @@ def createWikidb(root_folder):
 	pass
 
 def touch(path):
-    with open(path, 'a'):
-        os.utime(path, None)
+    open(path, 'a').close()
