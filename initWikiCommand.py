@@ -73,7 +73,7 @@ class InitWikiCommand(sublime_plugin.TextCommand):
 		else:
 			configExists = validateWikiconfig(root_folder)
 			if not configExists:
-				os.makedirs(os.path.dirname(os.path.join(root_folder,"wikiconfig")), exist_ok=True)
+				os.makedirs(os.path.join(root_folder,"wikiconfig"))
 
 			wikiDbExists = validateDb(root_folder)
 			if not wikiDbExists:
