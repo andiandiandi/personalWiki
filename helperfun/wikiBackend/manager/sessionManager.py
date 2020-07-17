@@ -30,6 +30,9 @@ def wiki(sid):
 	else:
 		return None
 
+def hasConnections():
+	return wikis is not None
+
 class Wiki:
 	def __init__(self,sid,socket):
 		self.sid = sid

@@ -9,8 +9,8 @@
         "command": "debug_init"
     },
      {
-        "caption": "Debug2 project as a Wiki",
-        "command": "debug_debug_init"
+        "caption": "disconnect from wiki server",
+        "command": "disconnect_wiki"
     },
     {
         "caption": "searchQuery Debug",

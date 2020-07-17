@@ -9,6 +9,7 @@ from . import socketio
 import time
 import threading
 import json
+import os
 
 _CONNECTIONSTRING = "http://127.0.0.1:9000"
 
@@ -26,7 +27,8 @@ def cleanup():
     for root_folder in connections:
         con = connections[root_folder]
         con.disconnect()
-        
+    
+    connections.clear()
 
 def add(root_folder):
     if not root_folder in connections:
@@ -45,12 +47,12 @@ def add(root_folder):
 def remove(root_folder):
     if root_folder in connections:
         try:
-            connections[root_folder].disconnect()
+            if connections[root_folder].isConnected():
+                connections[root_folder].disconnect()
             connections[root_folder] = None
             del connections[root_folder]
         except:
-            connections[root_folder] = None
-            del connections[root_folder]
+            raise Exception("could not properly remove Connection:", root_folder)
 
 def createConnection(root_folder):
     return Connection(root_folder)
@@ -76,7 +78,11 @@ class Connection:
 
     def connect(self):
         if not self.socket.connected:
-            self.socket.connect(_CONNECTIONSTRING)
+            try:
+                self.socket.connect(_CONNECTIONSTRING)
+            except:
+                return False
+        return True
 
     def disconnect(self):
         if self.socket.connected:
@@ -96,23 +102,29 @@ class Connection:
         print("received searchQueryResponse:" + str(jsondata))
         #jsondata is no jsonstr
         d = json.loads(jsondata)
+        print(type(d))
         l = []
-        for entry in d:
-            for s in d["span"]:
-                i = {"path":d["path"],
-                    "start":s["start"],
-                    "span":s["span"]
-                    }
-                l.append(json.dumps(i))
+        if d:
+            for entry in d:
+                if "span" in entry:
+                    for s in entry["span"]:
+                        fullpath = os.path.join(entry["file"]["path"],entry["file"]["name"] + entry["file"]["extension"])
+                        i = {"path":fullpath,
+                            "start":s["start"],
+                            "span":s["read"]
+                            }
+                        l.append(json.dumps(i))
 
         def on_done(index):
-            item = json.loads(l[index])
-            view = sublime.window.open_file(item["path"])
-            while(view.is_loading()):
-                time.sleep(0.5)
-            sublime.window.active_view().run_command("goto_line", {"line": item["start"]} )
+            if index >= 0:
+                item = json.loads(l[index])
+                print(item)
+                localApi.sublime.active_window().run_command("open_view_at_line", {"viewname": item["path"],"line": item["start"]})
+              #  view = localApi.sublime.active_window().open_file(item["path"])
+                #print(dir(view))
+                #view.run_command("goto_line", {"line": item["start"]} )
 
-        sublime.show_quick_panel(jsondata[span], on_done)
+        localApi.sublime.active_window().show_quick_panel(l, on_done)
 
     def isConnected(self):
         if self.socket:
@@ -120,21 +132,30 @@ class Connection:
         return False
 
     def errorEvent(self,data):
-        print("error event:",data)
+        localApi.error("Wiki server error: " + data)
 
     def projectInitialize(self):
-        jsondata = pathManager.path_to_dict(self.root_folder)
-        d = {
-            "root_folder": self.root_folder,
-            "project_structure": jsondata
-        }
-        self.send("initialize_project",json.dumps(d))
+        if self.isConnected():
+            jsondata = pathManager.path_to_dict(self.root_folder)
+            d = {
+                "root_folder": self.root_folder,
+                "project_structure": jsondata
+            }
+            self.send("initialize_project",json.dumps(d))
+        else:
+            localApi.error("connect to wiki server first")
 
     def searchQuery(self,searchQuery):
-        self.send("search_query", json.dumps(searchQuery))
+        if self.isConnected():
+            self.send("search_query", json.dumps(searchQuery))
+        else:
+            localApi.error("connect to wiki server first")
 
     def save(self,jsonfile):
-        self.send("save_file",json.dumps(jsonfile))
+         if self.isConnected():
+            self.send("save_file",json.dumps(jsonfile))
+         else:
+            localApi.error("connect to wiki server first")
 
     def sid(self):
         print(self.socket)

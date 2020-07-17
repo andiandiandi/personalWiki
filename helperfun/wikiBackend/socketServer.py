@@ -4,6 +4,9 @@ from flask_socketio import SocketIO
 from manager import sessionManager
 
 import json
+import time
+import threading
+import sys
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
@@ -52,7 +55,7 @@ def on_searchQuery(jsonStr):
 	if wiki.dbInit:
 		result = wiki.dbWrapper.runSearchQuery(json.loads(jsonStr))
 		print("here")
-		socketio.emit("search_query", str(result), room = request.sid)
+		socketio.emit("search_query", json.dumps(result), room = request.sid)
 	else:
 		error("you have to initialize the database first", request.sid)
 
@@ -65,5 +68,6 @@ def on_searchQuery(jsonStr):
 	else:
 		error("you have to initialize the database first", request.sid)
 
-if __name__ == '__main__':
-	socketio.run(app, host="127.0.0.1", port=9000)
+socketio.run(app, host="127.0.0.1", port=9000)
+	
+
