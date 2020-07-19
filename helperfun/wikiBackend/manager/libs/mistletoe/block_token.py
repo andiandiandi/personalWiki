@@ -375,7 +375,8 @@ class BlockCode(BlockToken):
         children (list): contains a single span_token.RawText token.
         language (str): always the empty string.
     """
-    def __init__(self, lines):
+    def __init__(self, lines, span):
+        self.span = span
         self.language = ''
         self.children = (span_token.RawText(''.join(lines).strip('\n')+'\n'),)
 

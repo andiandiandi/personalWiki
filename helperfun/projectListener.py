@@ -36,8 +36,9 @@ class FileEventHandler(PatternMatchingEventHandler):
 								"srcPath":event.src_path})
 
 	def on_modified(self, event):
-		self.historyQueue.append({"type":"modified",
-								"srcPath":event.src_path})
+		pass
+		#self.historyQueue.append({"type":"modified",
+		#						"srcPath":event.src_path})
 
 
 	def fetch(self):

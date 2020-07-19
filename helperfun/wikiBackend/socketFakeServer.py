@@ -29,6 +29,8 @@ def on_initializeProject(sid,root_folder,json_project_structure):
 	if not initialized:
 		error("something went wrong while initializing project", sid)
 
+
+
 def on_search(sid,query):
 	wiki = get(sid)
 	if wiki.dbInit:

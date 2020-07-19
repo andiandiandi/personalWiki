@@ -102,7 +102,7 @@ class Connection:
         print("received projectInitializeResponse:", str(jsondata))
 
     def filesChangedResponse(self,jsondata):
-        print(jsondata)
+        print("filesres",jsondata)
 
     def clearWikiDatabaseResponse(self,jsondata):
         print(jsondata)
@@ -192,6 +192,8 @@ class Connection:
 
     def send(self,event,message):
         with self.lock:
+            print("sending",event)
+            print("sending",message)
             self.socket.emit(event,message)
 
 ############### threading section#################

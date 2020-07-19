@@ -53,10 +53,11 @@ class Wiki:
 		if self.dbStatus == DbStatus.notConnected:
 			self.connectToDatabase(root_folder)
 
-		if self.dbStatus == DbStatus.connectionEstablished:
+		if self.dbStatus.value >= DbStatus.connectionEstablished.value:
 			self.root_folder = root_folder
 			noerror = self.dbWrapper.checkIndex(json_project_structure)
 			if noerror:
+				self.dbStatus = DbStatus.projectInitialized
 				return True
 
 		return False

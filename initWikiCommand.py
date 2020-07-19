@@ -27,7 +27,7 @@ def plugin_loaded():
 def plugin_unloaded():
 	sessionManager.cleanup()
 
-class DebugInitCommand(sublime_plugin.TextCommand):
+class InitializeWikiProjectCommand(sublime_plugin.TextCommand):
 	
 	def run(self,edit):
 		root_folder = pathManager.root_folder()
@@ -64,6 +64,13 @@ class ClearWikiDatabaseCommand(sublime_plugin.TextCommand):
 		con = sessionManager.connection(root_folder)
 
 		con.clearWikiDatabase()
+
+class PrintProjectStructureCommand(sublime_plugin.TextCommand):
+
+	def run(self, edit):
+		root_folder = pathManager.root_folder()
+		structure = pathManager.path_to_dict(root_folder)
+		print(structure)
 
 
 class InitWikiCommand(sublime_plugin.TextCommand):

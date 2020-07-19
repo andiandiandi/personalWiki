@@ -58,14 +58,15 @@ def on_clearDB(jsonStr):
 		connected = wiki.connectToDatabase(root_folder)
 		if not connected:
 			error("could not connect to database",request.sid)
+			return
+			
 	result = wiki.dbWrapper.clearDatabase()
-	print("RESULT",result)
 	socketio.emit("clear_db", json.dumps(result), room = request.sid)
 
 @socketio.on('search_query')
 def on_searchQuery(jsonStr):
 	wiki = get(request.sid)
-	if wiki.dbInit:
+	if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
 		result = wiki.dbWrapper.runSearchQuery(json.loads(jsonStr))
 		socketio.emit("search_query", json.dumps(result), room = request.sid)
 	else:
@@ -74,7 +75,7 @@ def on_searchQuery(jsonStr):
 @socketio.on('save_file')
 def on_saveFile(jsonStr):
 	wiki = get(request.sid)
-	if wiki.dbInit:
+	if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
 		result = wiki.dbWrapper.saveFile(json.loads(jsonStr))
 		socketio.emit("save_file", str(result), room = request.sid)
 	else:
@@ -83,8 +84,9 @@ def on_saveFile(jsonStr):
 @socketio.on('files_changed')
 def on_filesChanged(jsonStr):
 	wiki = get(request.sid)
-	if wiki.dbInit:
+	if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
 		result = wiki.dbWrapper.filesChanged(json.loads(jsonStr))
+		print("FILESCHANGED",result)
 		socketio.emit("files_changed", str(result), room = request.sid)
 	else:
 		error("you have to initialize the database first", request.sid)

@@ -6,7 +6,7 @@
     },
     {
         "caption": "initialize wiki project",
-        "command": "debug_init"
+        "command": "initialize_wiki_project"
     },
      {
         "caption": "disconnect from wiki server",
@@ -19,5 +19,9 @@
     {
         "caption": "clear Wiki Database",
         "command": "clear_wiki_database"
+    },
+    {
+        "caption": "print project structure",
+        "command": "print_project_structure"
     }
 ]
