@@ -12,11 +12,14 @@ from .helperfun import sessionManager
 from .helperfun import pathManager
 from .helperfun import localApi
 from .helperfun import saver
+from .helperfun import projectListener
+
 
 imp.reload(sessionManager)
 imp.reload(pathManager)
 imp.reload(localApi)
 imp.reload(saver)
+imp.reload(projectListener)
 
 def plugin_loaded():	
 	pass
@@ -54,6 +57,13 @@ class SearchQueryHeadersCommand(sublime_plugin.TextCommand):
 
 		con.searchQuery(jsonsearch)
 
+class ClearWikiDatabaseCommand(sublime_plugin.TextCommand):
+
+	def run(self, edit):
+		root_folder = pathManager.root_folder()
+		con = sessionManager.connection(root_folder)
+
+		con.clearWikiDatabase()
 
 
 class InitWikiCommand(sublime_plugin.TextCommand):
@@ -79,10 +89,11 @@ class InitWikiCommand(sublime_plugin.TextCommand):
 			if not wikiDbExists:
 				touch(os.path.join(root_folder,"wikiconfig","wiki.db"))
 
-
-
 			Connection = sessionManager.add(root_folder)
 			connected = Connection.connect()
+
+			filelistener = projectListener.FileListener(root_folder)
+			filelistener.start()
 
 			if not connected:
 				sublime.error_message("wiki server not running")
@@ -117,4 +128,5 @@ def createWikidb(root_folder):
 	pass
 
 def touch(path):
-    open(path, 'a').close()
+    with open(path, 'a'):
+        os.utime(path, None)

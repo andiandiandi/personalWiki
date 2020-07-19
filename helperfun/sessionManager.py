@@ -75,6 +75,9 @@ class Connection:
         self.socket.on("error", self.errorEvent)
         self.socket.on("project_initialized", self.projectInitializeResponse)
         self.socket.on("search_query", self.searchQueryResponse)
+        self.socket.on("files_changed", self.filesChangedResponse)
+        self.socket.on("clear_db", self.clearWikiDatabaseResponse)
+        self.lock = threading.Lock()
 
     def connect(self):
         if not self.socket.connected:
@@ -97,6 +100,12 @@ class Connection:
 
     def projectInitializeResponse(self, jsondata):
         print("received projectInitializeResponse:", str(jsondata))
+
+    def filesChangedResponse(self,jsondata):
+        print(jsondata)
+
+    def clearWikiDatabaseResponse(self,jsondata):
+        print(jsondata)
 
     def searchQueryResponse(self, jsondata):
         print("received searchQueryResponse:" + str(jsondata))
@@ -134,6 +143,12 @@ class Connection:
     def errorEvent(self,data):
         localApi.error("Wiki server error: " + data)
 
+
+
+    def clearWikiDatabase(self):
+        d = {"root_folder":self.root_folder}
+        self.send("clear_db",json.dumps(d))
+
     def projectInitialize(self):
         if self.isConnected():
             jsondata = pathManager.path_to_dict(self.root_folder)
@@ -157,13 +172,27 @@ class Connection:
          else:
             localApi.error("connect to wiki server first")
 
-    def sid(self):
-        print(self.socket)
-        print(self.socket.connected)
-        print(self.socket.sid)
+    def filesChanged(self,data,updateEvent="all"):
+        jsondata = json.dumps(data)
+        apiEvent = None
+        if updateEvent == "all":
+            apiEvent = "files_changed"
+        elif updateEvent == "modified":
+            apiEvent = "file_modified"
+        elif updateEvent == "created":
+            apiEvent = "file_created"
+        elif updateEvent == "deleted":
+            apiEvent = "file_deleted"
+        elif updateEvent == "moved":
+            apiEvent = "file_moved"
+
+        if jsondata and apiEvent:
+            self.send(apiEvent,jsondata)
+
 
     def send(self,event,message):
-        self.socket.emit(event,message)
+        with self.lock:
+            self.socket.emit(event,message)
 
 ############### threading section#################
 

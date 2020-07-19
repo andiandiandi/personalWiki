@@ -128,25 +128,22 @@ class DbWrapper:
 		dbFiles = self.selFiles()
 
 		for dbFile in list(dbFiles):
-			try:
-				for file in list(filesJson):
-					fullPath = file["path"]
-					if dbFile.fullpath == fullPath:
-						upToDate = file["lastmodified"] == dbFile.lastmodified
-						if not upToDate:
-							self.updateFile(dbFile.id,file)
-							print("updated",file["path"])
-							print(models.Content.get(models.Content.fileid == dbFile.id).headers)
-						else:
-							print("file is up to date",file["path"])
-							print(models.Content.get(models.Content.fileid == dbFile.id).headers)
+			for file in list(filesJson):
+				fullPath = file["path"]
+				if dbFile.fullpath == fullPath:
+					upToDate = file["lastmodified"] == dbFile.lastmodified
+					if not upToDate:
+						self.updateFile(dbFile.id,file)
+						print("updated",file["path"])
+						print(models.Content.get(models.Content.fileid == dbFile.id).headers)
+					else:
+						print("file is up to date",file["path"])
+						print(models.Content.get(models.Content.fileid == dbFile.id).headers)
 
-						filesJson.remove(file)
-						dbFiles.remove(dbFile)
-						break
-			except Exception as ex:
-				print("exception happened in checkindex",ex)
-				return False
+					filesJson.remove(file)
+					dbFiles.remove(dbFile)
+					break
+			
 
 
 		#leftovers in db
@@ -171,6 +168,19 @@ class DbWrapper:
 			self.updateFile(file.id,jsonfile)
 		else:
 			self.insertFile(jsonfile)
+
+	def filesChanged(self,queueDict):
+		q = queueDict["queue"]
+		return json.dumps(q)
+
+	def clearDatabase(self):
+		try:
+			self.dropTables()
+			return {"status":"success",
+					"response": "database cleared"}
+		except Exception as E:
+			return {"status":"exception",
+					"response": str(E)}
 
 	def dropTables(self):
 		with self.db.bind_ctx(models.modellist):

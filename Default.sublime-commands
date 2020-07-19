@@ -15,5 +15,9 @@
     {
         "caption": "searchQuery Debug",
         "command": "search_query_debug"
+    },
+    {
+        "caption": "clear Wiki Database",
+        "command": "clear_wiki_database"
     }
 ]

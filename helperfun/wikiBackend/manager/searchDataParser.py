@@ -35,7 +35,7 @@ def footnoteHandler(files,rootelement,values,db):
 		with db.bind_ctx(models.modellist):
 			query = (models.File.select(elementmapping[rootelement["value"]],models.File.name,models.File.extension,models.File.relpath)
 										.join(models.Content).where(models.File.name.concat(models.File.extension).in_(filesv)))
-			parseQuery(query,rootelement,rootvalues)
+			return parseQuery(query,rootelement,rootvalues)
 
 
 def imagelinkHandler(files,rootelement,values,db):
@@ -48,7 +48,7 @@ def imagelinkHandler(files,rootelement,values,db):
 		with db.bind_ctx(models.modellist):
 			query = (models.File.select(elementmapping[rootelement["value"]],models.File.name,models.File.extension,models.File.relpath)
 										.join(models.Content).where(models.File.name.concat(models.File.extension).in_(filesv)))
-			parseQuery(query,rootelement,rootvalues)
+			return parseQuery(query,rootelement,rootvalues)
 
 
 def textlinkHandler(files,rootelement,rootvalues,db):

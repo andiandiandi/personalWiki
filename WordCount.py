@@ -5,11 +5,10 @@ from os.path import basename
 import inspect
 import os
 import imp
-from .helperfun import wikiValidator
 
 def plugin_loaded():
-	imp.reload(wikiValidator)
-
+	pass
+	
 class Controls:
 	def __init__(self,sublime_settings, should_scan_whole_project):
 

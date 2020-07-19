@@ -1,6 +1,7 @@
 import os
 import time
 import threading
+from enum import Enum  
 
 from . import databaseManager
 from . import pathManager
@@ -33,25 +34,41 @@ def wiki(sid):
 def hasConnections():
 	return wikis is not None
 
+class DbStatus(Enum):
+	notConnected = 0
+	connectionEstablished = 1
+	projectInitialized = 2
+
+
 class Wiki:
 	def __init__(self,sid,socket):
 		self.sid = sid
 		self.socket = socket
 		self.dbWrapper = None
-		self.dbInit = False
+		self.dbStatus = DbStatus.notConnected
 		self.root_folder = None
 
 	#returns false when something goes wrong
 	def initializeProject(self, root_folder, json_project_structure):
-		self.root_folder = root_folder
-		self.dbWrapper = databaseManager.DbWrapper(self)
-		self.dbConnectionEstablished = self.dbWrapper.create_connection()
-		
-		if self.dbConnectionEstablished:
+		if self.dbStatus == DbStatus.notConnected:
+			self.connectToDatabase(root_folder)
+
+		if self.dbStatus == DbStatus.connectionEstablished:
+			self.root_folder = root_folder
 			noerror = self.dbWrapper.checkIndex(json_project_structure)
-			self.dbInit = True
 			if noerror:
 				return True
+
+		return False
+
+	def connectToDatabase(self,root_folder):
+		self.root_folder = root_folder
+		self.dbWrapper = databaseManager.DbWrapper(self)
+		dbConnectionEstablished = self.dbWrapper.create_connection()
+		
+		if dbConnectionEstablished:
+			self.dbStatus = DbStatus.connectionEstablished
+			return True
 
 		return False
 

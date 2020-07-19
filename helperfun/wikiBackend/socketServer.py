@@ -49,24 +49,61 @@ def on_initializeProject(jsonStr):
 	else:
 		socketio.emit("project_initialized","successfully initialized project", room = request.sid)
 
+@socketio.on('clear_db')
+def on_clearDB(jsonStr):
+	wiki = get(request.sid)
+	if wiki.dbStatus == sessionManager.DbStatus.notConnected:
+		realJson = json.loads(jsonStr)
+		root_folder = realJson["root_folder"]
+		connected = wiki.connectToDatabase(root_folder)
+		if not connected:
+			error("could not connect to database",request.sid)
+	result = wiki.dbWrapper.clearDatabase()
+	print("RESULT",result)
+	socketio.emit("clear_db", json.dumps(result), room = request.sid)
+
 @socketio.on('search_query')
 def on_searchQuery(jsonStr):
 	wiki = get(request.sid)
 	if wiki.dbInit:
 		result = wiki.dbWrapper.runSearchQuery(json.loads(jsonStr))
-		print("here")
 		socketio.emit("search_query", json.dumps(result), room = request.sid)
 	else:
 		error("you have to initialize the database first", request.sid)
 
 @socketio.on('save_file')
-def on_searchQuery(jsonStr):
+def on_saveFile(jsonStr):
 	wiki = get(request.sid)
 	if wiki.dbInit:
 		result = wiki.dbWrapper.saveFile(json.loads(jsonStr))
 		socketio.emit("save_file", str(result), room = request.sid)
 	else:
 		error("you have to initialize the database first", request.sid)
+
+@socketio.on('files_changed')
+def on_filesChanged(jsonStr):
+	wiki = get(request.sid)
+	if wiki.dbInit:
+		result = wiki.dbWrapper.filesChanged(json.loads(jsonStr))
+		socketio.emit("files_changed", str(result), room = request.sid)
+	else:
+		error("you have to initialize the database first", request.sid)
+
+@socketio.on('file_modified')
+def on_fileModified(jsonStr):
+	print(jsonStr)
+
+@socketio.on('file_created')
+def on_fileCreated(jsonStr):
+	print(jsonStr)
+
+@socketio.on('file_delete')
+def on_fileDeleted(jsonStr):
+	print(jsonStr)
+
+@socketio.on('file_moved')
+def on_fileMoved(jsonStr):
+	print(jsonStr)
 
 socketio.run(app, host="127.0.0.1", port=9000)
 	

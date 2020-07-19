@@ -4,11 +4,9 @@ import mdpopups
 import os
 import imp
 from .wikipageTemplates import templateGenerator as templateGenerator
-from .helperfun import wikiValidator
 
 def plugin_loaded():
     imp.reload(templateGenerator)
-    imp.reload(wikiValidator)
 
 
 class InsertMdLinkCommand(sublime_plugin.TextCommand):
