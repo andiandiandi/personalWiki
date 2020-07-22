@@ -5,6 +5,8 @@ from enum import Enum
 
 from . import databaseManager
 from . import pathManager
+from . import projectListener
+from . import responseGenerator
 
 
 wikis = {}
@@ -47,6 +49,10 @@ class Wiki:
 		self.dbWrapper = None
 		self.dbStatus = DbStatus.notConnected
 		self.root_folder = None
+		self.fileListener = None
+
+	def send(self,event,strdata):
+		self.socket.emit(event, str(strdata), room = self.sid)
 
 	#returns false when something goes wrong
 	def initializeProject(self, root_folder, json_project_structure):
@@ -58,9 +64,11 @@ class Wiki:
 			noerror = self.dbWrapper.checkIndex(json_project_structure)
 			if noerror:
 				self.dbStatus = DbStatus.projectInitialized
-				return True
+				self.startFileListener()
 
-		return False
+				return responseGenerator.createSuccessResponse("project initialized")
+
+		return responseGenerator.createExceptionResponse("could not initialize project")
 
 	def connectToDatabase(self,root_folder):
 		self.root_folder = root_folder
@@ -69,13 +77,19 @@ class Wiki:
 		
 		if dbConnectionEstablished:
 			self.dbStatus = DbStatus.connectionEstablished
-			return True
+			return responseGenerator.createSuccessResponse("connected to Database")
 
-		return False
+		return responseGenerator.createExceptionResponse("could not connect to Database")
+
+	def startFileListener(self):
+		self.filelistener = projectListener.FileListener(self)
+		self.filelistener.start()
 
 	def send(self,event,jsondata):
 		self.socket.emit(event,jsondata,room=self.sid)
 
 	def __del__(self):
+		if self.fileListener:
+			self.fileListener.stop()
 		if self.dbWrapper:
 			del self.dbWrapper

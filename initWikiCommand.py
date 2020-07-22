@@ -97,8 +97,8 @@ class InitWikiCommand(sublime_plugin.TextCommand):
 			Connection = sessionManager.add(root_folder)
 			connected = Connection.connect()
 
-			filelistener = projectListener.FileListener(root_folder)
-			filelistener.start()
+			#filelistener = projectListener.FileListener(root_folder)
+			#filelistener.start()
 
 			if not connected:
 				sublime.error_message("wiki server not running")

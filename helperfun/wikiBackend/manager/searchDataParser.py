@@ -22,8 +22,6 @@ def headerHandler(files,rootelement,rootvalues,db):
 		with db.bind_ctx(models.modellist):
 			#elementmapping {'headers': <CharField: Content.headers>, 'footnotes': <CharField: Content.footnotes>, 'textlinks': <CharField: Content.textlinks>, 'imagelinks': <CharField: Content.imagelinks>}
 			#rootelement {'negate': False, 'value': 'headers'}
-			print(filesv)
-			print("filesn",filesn)
 			#basename_w_ext = models.File.fullpath.
 			query = None
 			if filesn:
@@ -95,7 +93,7 @@ level
 """
 
 def parseQuery(query,rootelement,rootvalues):
-	debug = True
+	debug = False
 	toret = []
 	for file in query:
 		jsonstr = getattr(file.content,rootelement["value"])

@@ -50,6 +50,7 @@ def remove(root_folder):
             print("removing",root_folder)
             if connections[root_folder].isConnected():
                 connections[root_folder].disconnect()
+            connections[root_folder].updateWikiState(WikiState.removed)
             connections[root_folder] = None
             del connections[root_folder]
         except:
@@ -67,6 +68,12 @@ def connection(root_folder):
     return None
 
 
+class WikiState:
+    disconnected = "disconnected"
+    connected = "connected"
+    projectInitialized = "project initialized"
+    removed = "removed"
+
 class Connection:
     def __init__(self,root_folder):
         self.root_folder = root_folder
@@ -79,6 +86,7 @@ class Connection:
         self.socket.on("files_changed", self.filesChangedResponse)
         self.socket.on("clear_db", self.clearWikiDatabaseResponse)
         self.lock = threading.Lock()
+        self.wikiState = WikiState.disconnected
 
     def connect(self):
         if not self.socket.connected:
@@ -92,15 +100,23 @@ class Connection:
         if self.socket.connected:
             print("disconnecting")
             self.socket.disconnect()
+            self.updateWikiState(WikiState.disconnected)
+
+    def updateWikiState(self,newState):
+        self.wikiState = newState
+        localApi.runWindowCommand("update_wiki_status",{"status":newState})
 
     def connectedEvent(self):
         print(self.socket.sid, "connected")
+        self.updateWikiState(WikiState.connected)
 
     def disconnectedEvent(self):
         print("disconnected")
+        self.updateWikiState(WikiState.disconnected)
 
     def projectInitializeResponse(self, jsondata):
         print("received projectInitializeResponse:", str(jsondata))
+        self.updateWikiState(WikiState.projectInitialized)
 
     def filesChangedResponse(self,jsondata):
         print("filesres",jsondata)
@@ -143,8 +159,6 @@ class Connection:
 
     def errorEvent(self,data):
         localApi.error("Wiki server error: " + data)
-
-
 
     def clearWikiDatabase(self):
         d = {"root_folder":self.root_folder}

@@ -7,6 +7,7 @@ from . import models
 import json
 
 from . import searchDataParser
+from . import responseGenerator
 
 from .libs import mistletoe
 from .libs.mistletoe.ast_renderer import ASTRenderer
@@ -166,16 +167,16 @@ class DbWrapper:
 	def deleteFile(self,fullpath):
 		fileInDb = self.getFile(fullpath)
 		if not fileInDb:
-			return DbWrapper.createExceptionResponse("could not delete file, file not found: " + fullpath)
+			return responseGenerator.createExceptionResponse("could not delete file, file not found: " + fullpath)
 
 		try:
 			associatedContent = models.Content.get(models.Content.filepath == fullpath)
 			fileInDb.delete_instance()
 			associatedContent.delete_instance()
 
-			return DbWrapper.createSuccessResponse("deleted file: " + fullpath)
+			return responseGenerator.createSuccessResponse("deleted file: " + fullpath)
 		except Exception as E:
-			return DbWrapper.createExceptionResponse("could not delete file: " + fullpath + " | " + str(E))
+			return responseGenerator.createExceptionResponse("could not delete file: " + fullpath + " | " + str(E))
 
 
 	def filesChanged(self,queueDict):
@@ -196,34 +197,34 @@ class DbWrapper:
 				response = self.moveFile(entry["srcPath"],entry["destPath"])
 
 			else:
-				return DbWrapper.createExceptionResponse("files_changed event data is corrupted")
+				return responseGenerator.createExceptionResponse("files_changed event data is corrupted")
 
 			if response["status"] == "exception":
 				return response
 
-		return DbWrapper.createSuccessResponse("processed files_changed event")
+		return responseGenerator.createSuccessResponse("processed files_changed event")
 
 	def moveFile(self,srcPath,destPath):
 		try:
 			fileInDb = self.getFile(srcPath)
 			if not fileInDb:
-				return DbWrapper.createExceptionResponse("could not move file, file not found: " + srcPath)
+				return responseGenerator.createExceptionResponse("could not move file, file not found: " + srcPath)
 			fileWithDestPath = self.getfile(destPath)
 			if fileWithDestPath:
-				return DbWrapper.createExceptionResponse("could not move file, file with path already exists: " + destPath)
+				return responseGenerator.createExceptionResponse("could not move file, file with path already exists: " + destPath)
 
 			models.File.update(fullpath = destPath).where(models.File.fullpath == srcPath)
 
 
 		except Exception as E:
-			return DbWrapper.createExceptionResponse("could not move file: " + srcPath + " to " + destPath)
+			return responseGenerator.createExceptionResponse("could not move file: " + srcPath + " to " + destPath)
 
 
 	def updateFile(self,path, content, lastmodified):
 		with self.db.bind_ctx(models.modellist):
 			fileInDb = self.getFile(path)
 			if not fileInDb:
-				return DbWrapper.createExceptionResponse("File not found in database: " + path)
+				return responseGenerator.createExceptionResponse("File not found in database: " + path)
 
 			fileupdateQuery = models.File.update(lastmodified = lastmodified).where(models.File.fullpath == path)
 			rows = fileupdateQuery.execute()
@@ -239,13 +240,13 @@ class DbWrapper:
 					contentupdateQuery = models.Content.update(textdict = textdict, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes).where(models.Content.filepath == path)
 					contentupdateQuery.execute()
 
-					return DbWrapper.createSuccessResponse("updated file: " + json.dumps({"path":path,"lastmodified":lastmodified}))
+					return responseGenerator.createSuccessResponse("updated file: " + json.dumps({"path":path,"lastmodified":lastmodified}))
 
 				except Exception as E:
-					return DbWrapper.createExceptionResponse("exception while updating file: " + path + " ! " + str(E))
+					return responseGenerator.createExceptionResponse("exception while updating file: " + path + " ! " + str(E))
 
 
-			return DbWrapper.createExceptionResponse("could not update file: " + path)
+			return responseGenerator.createExceptionResponse("could not update file: " + path)
 
 	def insertFile(self,path,content,lastmodified):
 		try:
@@ -269,26 +270,17 @@ class DbWrapper:
 			footnotes = json.dumps(list_of_footnotes(json.loads(tree)))
 
 			c = self.modeldict["content"].create(textdict = textdict, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes, filepath=persisted_file.fullpath)
-			return DbWrapper.createSuccessResponse("inserted file: " + path)
+			return responseGenerator.createSuccessResponse("inserted file: " + path)
 
 		except Exception as E:
-			return DbWrapper.createExceptionResponse("exception while inserting file: " + path + " ! " + str(E))
+			return responseGenerator.createExceptionResponse("exception while inserting file: " + path + " ! " + str(E))
 
 	def clearDatabase(self):
 		try:
 			self.dropTables()
-			return DbWrapper.createSuccessResponse("Database cleared")
+			return responseGenerator.createSuccessResponse("Database cleared")
 		except Exception as E:
-			return DbWrapper.createExceptionResponse(str(E))
-
-	@staticmethod
-	def createExceptionResponse(msg):
-		return {"status":"exception",
-					"response": msg}
-
-	def createSuccessResponse(msg):
-		return {"status":"success",
-					"response": msg}
+			return responseGenerator.createExceptionResponse(str(E))
 
 	def dropTables(self):
 		with self.db.bind_ctx(models.modellist):

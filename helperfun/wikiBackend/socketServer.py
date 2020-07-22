@@ -24,14 +24,14 @@ def get(sid):
 		return None
 
 @socketio.on("connect")
-def connect():
+def on_connect():
 	
 	success = sessionManager.register(request.sid,socketio)
 	if not success:
 		error("could not register socket",sid)
 
 @socketio.on('disconnect')
-def test_disconnect():
+def on_disconnect():
 	sessionManager.remove(request.sid)
 
 @socketio.on('debug')
@@ -82,6 +82,7 @@ def on_saveFile(jsonStr):
 	else:
 		error("you have to initialize the project first", request.sid)
 
+"""
 @socketio.on('files_changed')
 def on_filesChanged(jsonStr):
 	wiki = get(request.sid)
@@ -106,6 +107,8 @@ def on_fileDeleted(jsonStr):
 @socketio.on('file_moved')
 def on_fileMoved(jsonStr):
 	pass
+
+"""
 
 socketio.run(app, host="127.0.0.1", port=9000)
 	

@@ -12,5 +12,8 @@ def currentView():
 			return sublime.active_window().active_view()
 	return None
 
+def runWindowCommand(commandname,args):
+	sublime.active_window().run_command(commandname,args)
+
 def error(message):
 	sublime.error_message(message)
