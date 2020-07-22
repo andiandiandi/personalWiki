@@ -1,8 +1,13 @@
 import sublime
 import sublime_plugin
+import imp
 
 from .helperfun import sessionManager
 from .helperfun import pathManager
+
+imp.reload(sessionManager)
+imp.reload(pathManager)
+
 
 class UpdateWikiStatusCommand(sublime_plugin.WindowCommand):
 	def run(self, status):

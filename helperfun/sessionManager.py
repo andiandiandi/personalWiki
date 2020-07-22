@@ -104,7 +104,7 @@ class Connection:
 
     def updateWikiState(self,newState):
         self.wikiState = newState
-        localApi.runWindowCommand("update_wiki_status",{"status":newState})
+        localApi.runWindowCommand(self.root_folder,"update_wiki_status",{"status":newState})
 
     def connectedEvent(self):
         print(self.socket.sid, "connected")
