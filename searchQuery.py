@@ -6,6 +6,7 @@ import imp
 
 from .helperfun import sessionManager
 from .helperfun import pathManager
+from .helperfun import localApi
 imp.reload(sessionManager)
 imp.reload(pathManager)
 
@@ -22,6 +23,8 @@ class SearchQueryDebugCommand(sublime_plugin.TextCommand):
 			jsonsearch2 = {"files":{"negate":False,"values":["subtestfile.md"]},"element":{"negate":False, "value":"headers"},"values":[]}
 
 			con.searchQuery(jsonsearch)
+		else:
+			localApi.error("connect to wiki server first")
 
 	def on_change(self,a):
 		pass

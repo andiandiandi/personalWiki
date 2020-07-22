@@ -36,10 +36,10 @@ def add(root_folder):
         for c in connections:
             print("c",c)
 
-    #if not _zombieCollector:
-    #   run_zombieCollector()
-    #elif not _zombieCollector.isAlive():
-    #   run_zombieCollector()
+    if not _zombieCollector:
+       run_zombieCollector()
+    elif not _zombieCollector.isAlive():
+       run_zombieCollector()
 
     return connections[root_folder]
 
@@ -47,6 +47,7 @@ def add(root_folder):
 def remove(root_folder):
     if root_folder in connections:
         try:
+            print("removing",root_folder)
             if connections[root_folder].isConnected():
                 connections[root_folder].disconnect()
             connections[root_folder] = None
@@ -69,7 +70,7 @@ def connection(root_folder):
 class Connection:
     def __init__(self,root_folder):
         self.root_folder = root_folder
-        self.socket = socketio.Client(reconnection = True)
+        self.socket = socketio.Client(reconnection = False)
         self.socket.on("connect", self.connectedEvent)
         self.socket.on("disconnect", self.disconnectedEvent)
         self.socket.on("error", self.errorEvent)
@@ -199,21 +200,14 @@ class Connection:
 ############### threading section#################
 
 def check_zombies_every_n_seconds():
-    zombie_clear_interval = get_zombie_clear_interval()
+    zombie_clear_interval = get_zombie_clear_interval() or 15
+
     while connections:
-        active_windows = [(window.id(),pathManager.root_folder(window)) for window in localApi.windows()]
+        active_windows = [(pathManager.root_folder(window)) for window in localApi.windows()]
+        toDisconnect = [folder for folder in connections if folder not in active_windows]
 
-        for con in list(connections.values()):
-            #iterate over copy
-            for id in list(con.window_ids):
-                if (id,con.path) not in active_windows:
-                    con.window_ids.remove(id)
-                    print("removing from con:",id)
-
-        to_remove = [k for k in connections.keys() if not connections[k].window_ids]
-        for k in to_remove: 
-            remove(k)
-            print("removing",k)
+        for folder in list(toDisconnect):
+            remove(folder)
 
         time.sleep(zombie_clear_interval)
 

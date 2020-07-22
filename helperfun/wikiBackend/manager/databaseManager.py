@@ -10,6 +10,7 @@ from . import searchDataParser
 
 from .libs import mistletoe
 from .libs.mistletoe.ast_renderer import ASTRenderer
+from . import backendMetadataParser
 
 
 def list_of_imagelinks(md_ast):
@@ -100,6 +101,7 @@ class DbWrapper:
 		self.modeldict["folder"] = models.Folder
 		self.modeldict["file"] = models.File
 		self.modeldict["content"] = models.Content
+		self.modeldict["databasemetadata"] = models.DatabaseMetadata
 
 	def create_connection(self):
 		try:
@@ -133,12 +135,12 @@ class DbWrapper:
 				if dbFile.fullpath == fullPath:
 					upToDate = file["lastmodified"] == dbFile.lastmodified
 					if not upToDate:
-						self.updateFile(dbFile.id,file)
+						self.updateFile(file["path"],file["content"],file["lastmodified"])
 						print("updated",file["path"])
-						print(models.Content.get(models.Content.fileid == dbFile.id).headers)
+						print(models.Content.get(models.Content.filepath == dbFile.fullpath).headers)
 					else:
 						print("file is up to date",file["path"])
-						print(models.Content.get(models.Content.fileid == dbFile.id).headers)
+						print(models.Content.get(models.Content.filepath == dbFile.fullpath).headers)
 
 					filesJson.remove(file)
 					dbFiles.remove(dbFile)
@@ -150,37 +152,143 @@ class DbWrapper:
 		if dbFiles:
 			for f in dbFiles:
 				print("deleting leftover",f.fullpath)
-				associatedContent = models.Content.get(models.Content.fileid == f.id)
-				f.delete_instance()
-				associatedContent.delete_instance()
+				self.deleteFile(f.fullpath)
 
 
 		if filesJson:
 			for f in filesJson:
 				print("inserting new file",f["path"])
-				self.insertFile(f)
+				self.insertFile(f["path"],f["content"],f["lastmodified"])
 
 		return True
 
-	def saveFile(self,jsonfile):
-		file = models.File.get_or_none(models.File.fullpath == jsonfile["path"])
-		if file:
-			self.updateFile(file.id,jsonfile)
-		else:
-			self.insertFile(jsonfile)
+
+	def deleteFile(self,fullpath):
+		fileInDb = self.getFile(fullpath)
+		if not fileInDb:
+			return DbWrapper.createExceptionResponse("could not delete file, file not found: " + fullpath)
+
+		try:
+			associatedContent = models.Content.get(models.Content.filepath == fullpath)
+			fileInDb.delete_instance()
+			associatedContent.delete_instance()
+
+			return DbWrapper.createSuccessResponse("deleted file: " + fullpath)
+		except Exception as E:
+			return DbWrapper.createExceptionResponse("could not delete file: " + fullpath + " | " + str(E))
+
 
 	def filesChanged(self,queueDict):
 		q = queueDict["queue"]
-		return json.dumps(q)
+
+		for entry in q:
+			response = None
+			if entry["type"] == "modified":
+				response = self.updateFile(entry["srcPath"],entry["content"],entry["lastmodified"])
+
+			elif entry["type"] == "created":
+				response = self.insertFile(entry["srcPath"],entry["content"],entry["lastmodified"])
+
+			elif entry["type"] == "deleted":
+				response = self.deleteFile(entry["srcPath"])
+
+			elif entry["type"] == "moved":
+				response = self.moveFile(entry["srcPath"],entry["destPath"])
+
+			else:
+				return DbWrapper.createExceptionResponse("files_changed event data is corrupted")
+
+			if response["status"] == "exception":
+				return response
+
+		return DbWrapper.createSuccessResponse("processed files_changed event")
+
+	def moveFile(self,srcPath,destPath):
+		try:
+			fileInDb = self.getFile(srcPath)
+			if not fileInDb:
+				return DbWrapper.createExceptionResponse("could not move file, file not found: " + srcPath)
+			fileWithDestPath = self.getfile(destPath)
+			if fileWithDestPath:
+				return DbWrapper.createExceptionResponse("could not move file, file with path already exists: " + destPath)
+
+			models.File.update(fullpath = destPath).where(models.File.fullpath == srcPath)
+
+
+		except Exception as E:
+			return DbWrapper.createExceptionResponse("could not move file: " + srcPath + " to " + destPath)
+
+
+	def updateFile(self,path, content, lastmodified):
+		with self.db.bind_ctx(models.modellist):
+			fileInDb = self.getFile(path)
+			if not fileInDb:
+				return DbWrapper.createExceptionResponse("File not found in database: " + path)
+
+			fileupdateQuery = models.File.update(lastmodified = lastmodified).where(models.File.fullpath == path)
+			rows = fileupdateQuery.execute()
+			if rows > 0:
+				try:
+					tree = parseContentMistletoe(content)
+					#textdict = json.dumps(parseText(tree))
+					imagelinks = json.dumps(list_of_imagelinks(json.loads(tree)))
+					textlinks = json.dumps(list_of_textlinks(json.loads(tree)))
+					textdict = ""
+					headers = json.dumps(list_of_headers(json.loads(tree)))
+					footnotes = json.dumps(list_of_footnotes(json.loads(tree)))
+					contentupdateQuery = models.Content.update(textdict = textdict, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes).where(models.Content.filepath == path)
+					contentupdateQuery.execute()
+
+					return DbWrapper.createSuccessResponse("updated file: " + json.dumps({"path":path,"lastmodified":lastmodified}))
+
+				except Exception as E:
+					return DbWrapper.createExceptionResponse("exception while updating file: " + path + " ! " + str(E))
+
+
+			return DbWrapper.createExceptionResponse("could not update file: " + path)
+
+	def insertFile(self,path,content,lastmodified):
+		try:
+			fileExists = self.getFile(path)
+			if fileExists:
+				return self.updateFile(path,content,lastmodified)
+			fullpath = path
+			basename_no_extension = os.path.splitext(os.path.basename(fullpath))[0]
+			extension = os.path.splitext(fullpath)[1]
+			relpath = os.path.dirname(fullpath)
+			lastmodified = lastmodified
+			#persisted_file = self.modeldict["jsonfile"].create(fullpath = fullpath, name=basename_no_extension,extension=extension,relpath=relpath, lastmodified = lastmodified, folderid=parentID)
+			persisted_file = self.modeldict["file"].create(fullpath = path, lastmodified = lastmodified)
+
+			tree = parseContentMistletoe(content)
+			#textdict = json.dumps(parseText(tree))
+			imagelinks = json.dumps(list_of_imagelinks(json.loads(tree)))
+			textlinks = json.dumps(list_of_textlinks(json.loads(tree)))
+			textdict = ""
+			headers = json.dumps(list_of_headers(json.loads(tree)))
+			footnotes = json.dumps(list_of_footnotes(json.loads(tree)))
+
+			c = self.modeldict["content"].create(textdict = textdict, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes, filepath=persisted_file.fullpath)
+			return DbWrapper.createSuccessResponse("inserted file: " + path)
+
+		except Exception as E:
+			return DbWrapper.createExceptionResponse("exception while inserting file: " + path + " ! " + str(E))
 
 	def clearDatabase(self):
 		try:
 			self.dropTables()
-			return {"status":"success",
-					"response": "database cleared"}
+			return DbWrapper.createSuccessResponse("Database cleared")
 		except Exception as E:
-			return {"status":"exception",
-					"response": str(E)}
+			return DbWrapper.createExceptionResponse(str(E))
+
+	@staticmethod
+	def createExceptionResponse(msg):
+		return {"status":"exception",
+					"response": msg}
+
+	def createSuccessResponse(msg):
+		return {"status":"success",
+					"response": msg}
 
 	def dropTables(self):
 		with self.db.bind_ctx(models.modellist):
@@ -194,39 +302,6 @@ class DbWrapper:
 		with self.db.bind_ctx(models.modellist):
 			initProject(self.db,self.modeldict,json)
 
-	def updateFile(self,fileid,jsonfile):
-		with self.db.bind_ctx(models.modellist):
-			fileupdateQuery = models.File.update(lastmodified = jsonfile["lastmodified"]).where(models.File.id == fileid)
-			rows = fileupdateQuery.execute()
-			if rows > 0:
-				tree = parseContentMistletoe(jsonfile["content"])
-				#textdict = json.dumps(parseText(tree))
-				imagelinks = json.dumps(list_of_imagelinks(json.loads(tree)))
-				textlinks = json.dumps(list_of_textlinks(json.loads(tree)))
-				textdict = ""
-				headers = json.dumps(list_of_headers(json.loads(tree)))
-				footnotes = json.dumps(list_of_footnotes(json.loads(tree)))
-				contentupdateQuery = models.Content.update(textdict = textdict, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes).where(models.Content.fileid == fileid)
-				contentupdateQuery.execute()
-
-
-	def insertFile(self,jsonfile):
-		fullpath = jsonfile["path"]
-		basename_no_extension = os.path.splitext(os.path.basename(fullpath))[0]
-		extension = os.path.splitext(fullpath)[1]
-		relpath = os.path.dirname(fullpath)
-		lastmodified = jsonfile["lastmodified"]
-		#persisted_file = self.modeldict["jsonfile"].create(fullpath = fullpath, name=basename_no_extension,extension=extension,relpath=relpath, lastmodified = lastmodified, folderid=parentID)
-		persisted_file = self.modeldict["file"].create(fullpath = fullpath, name=basename_no_extension,extension=extension,relpath=relpath, lastmodified = lastmodified)
-
-		tree = parseContentMistletoe(jsonfile["content"])
-		#textdict = json.dumps(parseText(tree))
-		imagelinks = json.dumps(list_of_imagelinks(json.loads(tree)))
-		textlinks = json.dumps(list_of_textlinks(json.loads(tree)))
-		textdict = ""
-		headers = json.dumps(list_of_headers(json.loads(tree)))
-		footnotes = json.dumps(list_of_footnotes(json.loads(tree)))
-		c = self.modeldict["content"].create(textdict = textdict, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes, fileid=persisted_file.id)
 
 	def selFolders(self):
 		with self.db.bind_ctx(models.modellist):
@@ -252,17 +327,12 @@ class DbWrapper:
 				l.append(f)
 			return l
 
-	def getFile(self,fullPath, id = None):
+	def getFile(self,fullPath):
 		with self.db.bind_ctx(models.modellist):
-			if id:
-				query = models.File.get_by_id(models.File.id==id)
-				if query.exists():
-					return query
-			else:
-				file = models.File.get_or_none(models.File.fullpath == fullPath)
-				if file:
-					return file
-				return None
+			file = models.File.get_or_none(models.File.fullpath == fullPath)
+			if file:
+				return file
+			return None
 
 	def initProject(self,db, jsondata, parentID = None):
 		persisted_Folder = self.modeldict["folder"].create(name=jsondata["name"],parentid=parentID)
@@ -277,7 +347,7 @@ class DbWrapper:
 			relpath = os.path.dirname(fullpath)
 			lastmodified = file["lastmodified"]
 			#persisted_file = self.modeldict["file"].create(fullpath = fullpath, name=basename_no_extension,extension=extension,relpath=relpath, lastmodified = lastmodified, folderid=parentID)
-			persisted_file = self.modeldict["file"].create(fullpath = fullpath, name=basename_no_extension,extension=extension,relpath=relpath, lastmodified = lastmodified)
+			persisted_file = self.modeldict["file"].create(fullpath = fullpath, lastmodified = lastmodified)
 
 			tree = parseContentMistletoe(file["content"])
 			#textdict = json.dumps(parseText(tree))
@@ -286,7 +356,7 @@ class DbWrapper:
 			textdict = ""
 			headers = json.dumps(list_of_headers(json.loads(tree)))
 			footnotes = json.dumps(list_of_footnotes(json.loads(tree)))
-			c = self.modeldict["content"].create(textdict = textdict, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes, fileid=persisted_file.id)
+			c = self.modeldict["content"].create(textdict = textdict, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes, filepath=persisted_file.fullpath)
 		#fill folder table
 		for subfolder in subfolders:
 			initProject(db,self.modeldict,subfolder,parentID)

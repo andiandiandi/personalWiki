@@ -1,8 +1,8 @@
-import sublime
 import logging
 import sys
 import time
 import copy
+import os
 from threading import Thread
 
 from collections import deque
@@ -12,6 +12,8 @@ from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
 from . import sessionManager
+from . import localApi
+
 
 class FileEventHandler(PatternMatchingEventHandler):
 
@@ -36,9 +38,8 @@ class FileEventHandler(PatternMatchingEventHandler):
 								"srcPath":event.src_path})
 
 	def on_modified(self, event):
-		pass
-		#self.historyQueue.append({"type":"modified",
-		#						"srcPath":event.src_path})
+		self.historyQueue.append({"type":"modified",
+								"srcPath":event.src_path})
 
 
 	def fetch(self):
@@ -74,7 +75,8 @@ class FileListener:
 					for d in q:
 						if d["type"] == "modified" or d["type"] == "created":
 							d["content"] = FileListener.readFile(d["srcPath"])
-
+							d["lastmodified"] = FileListener.readModifiedValue(d["srcPath"])
+# 
 					dict_wrapper = {"queue":[entry for entry in q]}
 
 					self.connection.filesChanged(dict_wrapper)
@@ -92,5 +94,13 @@ class FileListener:
 		try:
 			return open(path, 'r', encoding='utf8').read()
 		except Exception as e:
-			sublime.error_message("could not read file:{0}, index of backend-server is broken now! initialize project again!!", path)
+			localApi.error("could not read file:{0}, index of backend-server is broken now! initialize project again!!", path)
+			return "BROKEN CONTENT"
+
+	@staticmethod
+	def readModifiedValue(path):
+		try:
+			return os.path.getmtime(path)
+		except Exception as e:
+			localApi.error("could not read modification-date of file:{0}, index of backend-server is broken now! initialize project again!!", path)
 			return "BROKEN CONTENT"

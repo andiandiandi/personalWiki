@@ -11,17 +11,41 @@ level
 
 """
 
+
 def headerHandler(files,rootelement,rootvalues,db):
 	elemn = extn(rootelement)
 	if elemn:
 		return fetch_without_element("headers",db)
-	else:
+	else:	
 		filesv = extv(files)
 		filesn = extn(files)
 		with db.bind_ctx(models.modellist):
-			query = (models.File.select(elementmapping[rootelement["value"]],models.File.name,models.File.extension,models.File.relpath)
+			#elementmapping {'headers': <CharField: Content.headers>, 'footnotes': <CharField: Content.footnotes>, 'textlinks': <CharField: Content.textlinks>, 'imagelinks': <CharField: Content.imagelinks>}
+			#rootelement {'negate': False, 'value': 'headers'}
+			print(filesv)
+			print("filesn",filesn)
+			#basename_w_ext = models.File.fullpath.
+			query = None
+			if filesn:
+				if filesv:
+					query = (models.File.select(elementmapping[rootelement["value"]],models.File.name,models.File.extension,models.File.relpath)
+										.join(models.Content).where(models.File.name.concat(models.File.extension).not_in(filesv)))
+				else:
+					query = (models.File.select(elementmapping[rootelement["value"]],models.File.name,models.File.extension,models.File.relpath)
+										.join(models.Content))
+			else:
+				if filesv:
+					query = (models.File.select(elementmapping[rootelement["value"]],models.File.name,models.File.extension,models.File.relpath)
 										.join(models.Content).where(models.File.name.concat(models.File.extension).in_(filesv)))
-			return parseQuery(query,rootelement,rootvalues)
+				else:
+					query = (models.File.select(elementmapping[rootelement["value"]],models.File.name,models.File.extension,models.File.relpath)
+										.join(models.Content))
+
+			if query:
+				return parseQuery(query,rootelement,rootvalues)
+
+			return None
+
 
 
 
@@ -71,15 +95,15 @@ level
 """
 
 def parseQuery(query,rootelement,rootvalues):
-	debug = False
+	debug = True
 	toret = []
-	for row in query:
-		jsonstr = getattr(row.content,rootelement["value"])
+	for file in query:
+		jsonstr = getattr(file.content,rootelement["value"])
 		parsed = json.loads(jsonstr)
 		if debug:
 			print("parsed",parsed)
 		if parsed:
-			retobj = createFile(row.name,row.extension,row.relpath)
+			retobj = createFile(file.name,file.extension,file.relpath)
 			for element in parsed:
 				if debug:
 					print("ele",element)
@@ -124,28 +148,29 @@ def parseQuery(query,rootelement,rootvalues):
 			toret.append(retobj)
 										
 
-		return toret
+	return toret
 
 def fetch_without_element(elementname,db):
 	tofetch = elementmapping[elementname]
 	if tofetch:
 		with db.bind_ctx(models.modellist):
-			query = (models.File.select(tofetch, models.File.name,models.File.extension,models.File.relpath)
+			query = (models.File.select(tofetch)
 						.join(models.Content))
 			toret = []
-			for row in query:
-				content = getattr(row,"content")
+			for file in query:
+				content = getattr(file,"content")
 				element = getattr(content,elementname)
 				d = json.loads(element)
 				if not d:
-					toret.append(createRet(row.name,row.extension,row.relpath,None))
+					toret.append(createRet(file.name,file.extension,file.relpath,None))
 			return toret
 
-def createFile(name,extension,path):
-	return {"file":{"name":name,"extension":extension,"path":path},"span":[]}
+def createFile(name,extension,relpath):
+	return {"file":{"name":name,"extension":extension,"path":relpath},"span":[]}
 
-def createRet(name,extension,path,span):
-	return {"file":{"name":name,"extension":extension,"path":path},"span":span}
+def createRet(name,extension,relpath,span):
+	print("file",file)
+	return {"file":{"name":name,"extension":extension,"path":relpath},"span":span}
 
 def extv(obj):
 	if "values" in obj:

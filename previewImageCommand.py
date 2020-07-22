@@ -6,11 +6,9 @@ import base64
 import urllib.request
 import imp
 from .helperfun import pathManager
-from .helperfun import wikiValidator
 
 def plugin_loaded():
 	imp.reload(pathManager)
-	imp.reload(wikiValidator)
 
 phantom_dict = {}
 

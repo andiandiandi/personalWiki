@@ -25,6 +25,7 @@ def get(sid):
 
 @socketio.on("connect")
 def connect():
+	
 	success = sessionManager.register(request.sid,socketio)
 	if not success:
 		error("could not register socket",sid)
@@ -70,7 +71,7 @@ def on_searchQuery(jsonStr):
 		result = wiki.dbWrapper.runSearchQuery(json.loads(jsonStr))
 		socketio.emit("search_query", json.dumps(result), room = request.sid)
 	else:
-		error("you have to initialize the database first", request.sid)
+		error("you have to initialize the project first", request.sid)
 
 @socketio.on('save_file')
 def on_saveFile(jsonStr):
@@ -79,33 +80,32 @@ def on_saveFile(jsonStr):
 		result = wiki.dbWrapper.saveFile(json.loads(jsonStr))
 		socketio.emit("save_file", str(result), room = request.sid)
 	else:
-		error("you have to initialize the database first", request.sid)
+		error("you have to initialize the project first", request.sid)
 
 @socketio.on('files_changed')
 def on_filesChanged(jsonStr):
 	wiki = get(request.sid)
 	if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
 		result = wiki.dbWrapper.filesChanged(json.loads(jsonStr))
-		print("FILESCHANGED",result)
 		socketio.emit("files_changed", str(result), room = request.sid)
 	else:
-		error("you have to initialize the database first", request.sid)
+		error("you have to initialize the project first", request.sid)
 
 @socketio.on('file_modified')
 def on_fileModified(jsonStr):
-	print(jsonStr)
+	pass
 
 @socketio.on('file_created')
 def on_fileCreated(jsonStr):
-	print(jsonStr)
+	pass
 
 @socketio.on('file_delete')
 def on_fileDeleted(jsonStr):
-	print(jsonStr)
+	pass
 
 @socketio.on('file_moved')
 def on_fileMoved(jsonStr):
-	print(jsonStr)
+	pass
 
 socketio.run(app, host="127.0.0.1", port=9000)
 	

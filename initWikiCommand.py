@@ -11,14 +11,12 @@ import subprocess
 from .helperfun import sessionManager
 from .helperfun import pathManager
 from .helperfun import localApi
-from .helperfun import saver
 from .helperfun import projectListener
 
 
 imp.reload(sessionManager)
 imp.reload(pathManager)
 imp.reload(localApi)
-imp.reload(saver)
 imp.reload(projectListener)
 
 def plugin_loaded():	
@@ -42,7 +40,8 @@ class DisconnectWikiCommand(sublime_plugin.TextCommand):
 	
 	def run(self,edit):
 		root_folder = pathManager.root_folder()
-		sessionManager.remove(root_folder)
+		if sessionManager.hasProject(root_folder):
+			sessionManager.remove(root_folder)
 
 
 
@@ -83,7 +82,6 @@ class InitWikiCommand(sublime_plugin.TextCommand):
 			return
 		print(root_folder)
 
-		#window_id = localApi.window_id()
 		if sessionManager.hasProject(root_folder):
 			print("already connected")
 			return
