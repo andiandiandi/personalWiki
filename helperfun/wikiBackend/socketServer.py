@@ -1,12 +1,15 @@
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO
+from flask import render_template
 
 from manager import sessionManager
+from manager import pathManager
 
 import json
 import time
 import threading
 import sys
+import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
@@ -23,32 +26,35 @@ def get(sid):
 		error("you have to connect to server first", sid)
 		return None
 
+@socketio.on("connect",namespace='/events')
+def on_connect_events():
+	print("connect_events",request.sid)
+
+@socketio.on('disconnect',namespace="/events")
+def on_disconnect_events():
+	print("disco_events",request.sid)
+	sessionManager.removeSubscriber(request.sid)
+
 @socketio.on("connect")
 def on_connect():
-	
-	success = sessionManager.register(request.sid,socketio)
-	if not success:
-		error("could not register socket",sid)
+	pass
 
 @socketio.on('disconnect')
 def on_disconnect():
 	sessionManager.remove(request.sid)
 
-@socketio.on('debug')
-def handle_message(message):
-	socketio.emit('debug', str(wikiManager.sessions_count()), room = request.sid)
-
 @socketio.on('initialize_project')
-def on_initializeProject(jsonStr):
-	realJson = json.loads(jsonStr)
-	root_folder = realJson["root_folder"]
-	json_project_structure = realJson["project_structure"]
-	wiki = get(request.sid)
-	initialized = wiki.initializeProject(root_folder,json_project_structure)
-	if not initialized:
-		error("something went wrong while initializing project", request.sid)
+def on_initializeProject(root_folder):
+	success = sessionManager.register(request.sid,socketio)
+	if not success:
+		error("could not register wiki,socketid:",sid)
 	else:
-		socketio.emit("project_initialized","successfully initialized project", room = request.sid)
+		wiki = get(request.sid)
+		initialized = wiki.initializeProject(root_folder)
+		if not initialized:
+			error("something went wrong while initializing project", request.sid)
+		else:
+			socketio.emit("project_initialized","successfully initialized project", room = request.sid)
 
 @socketio.on('clear_db')
 def on_clearDB(jsonStr):
@@ -73,16 +79,88 @@ def on_searchQuery(jsonStr):
 	else:
 		error("you have to initialize the project first", request.sid)
 
-@socketio.on('save_file')
-def on_saveFile(jsonStr):
-	wiki = get(request.sid)
-	if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
-		result = wiki.dbWrapper.saveFile(json.loads(jsonStr))
-		socketio.emit("save_file", str(result), room = request.sid)
-	else:
-		error("you have to initialize the project first", request.sid)
+def createContainer():
+	return '<div class="foldercontainer">'
 
-"""
+def createFile(path):
+	return '<span class="file fa-file-text" ' + 'data-fullpath=' + path + '>' + os.path.basename(path) + '</span>'
+
+def createNonemptyFolder(name):
+	return '<span class="folder fa-folder-o" data-isexpanded="true">' + name + '</span>'
+
+def createEmptyFolder(name):
+	return '<span class="folder fa-folder">' + name + '</span>'
+
+def createNoItems():
+	return '<span class="noitems">No Items</span>'
+
+def generateFileHierarchyRecursive(jsondata):
+	toret = ""
+	for data in jsondata:
+		toret += createContainer()
+		files = data["files"]
+		if files:
+			toret += createNonemptyFolder(data["name"])
+			for file in files:
+				toret += createFile(file["path"])
+		else:
+			toret += createEmptyFolder(data["name"])
+			toret += createNoItems()
+		toret += generateFileHierarchyRecursive(data["folders"])
+		toret += '</div>'
+
+
+	return toret
+
+def generateFullFileHierarchy(path):
+	jsondata = pathManager.path_to_dict(path)
+	return generateFileHierarchyRecursive(jsondata["folders"])
+
+@app.route('/<sid>')
+def fileHierarchy(sid):
+	wiki = get(sid)
+	if wiki:
+		if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
+			return render_template('fileHierarchy.html',fileHierarchy=generateFullFileHierarchy,root_folder=wiki.root_folder,sid=sid)
+		else:
+			return "project not init"
+	else:
+		return "wiki not found"
+
+@app.route('/<sid>/<path>')
+def wikipage(sid,path):
+	wiki = get(sid)
+	if wiki:
+		if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
+			wikipageHtml = wiki.dbWrapper.wikipageHtml(path)
+			dirpath = os.path.dirname(path)
+			return render_template('wikipage.html',root_folder=wiki.root_folder,wikipageHtml=wikipageHtml,sid=sid,path=path,dirpath=dirpath)
+		else:
+			return "project not init"
+	else:
+		return "wiki not found"
+	
+
+@app.route('/')
+def index():
+	sids = sessionManager.sids()
+	return render_template('index.html', sids=sids)
+
+@socketio.on('subscribe', namespace='/events')
+def subscribeFilesChanged(data):
+	jsondata = None
+	try:
+		jsondata = json.loads(data)
+		if jsondata and type(jsondata) == list:
+			for eventItem in jsondata:		
+				eventname = eventItem["eventname"] if "eventname" in eventItem else None
+				targetSid = eventItem["targetsid"] if "targetsid" in eventItem else None
+				path = eventItem["path"] if "path" in eventItem else None
+				if eventname and targetSid:
+					sessionManager.addSubscriber(request.sid,targetSid,eventname,socketio,"/events",path)
+	except Exception as E:
+		print("EXP in subscribe:",str(E))
+
 @socketio.on('files_changed')
 def on_filesChanged(jsonStr):
 	wiki = get(request.sid)
@@ -108,8 +186,22 @@ def on_fileDeleted(jsonStr):
 def on_fileMoved(jsonStr):
 	pass
 
-"""
+@socketio.on('render_wikipage')
+def on_renderWikipage(pathStr):
+	if type(pathStr) != str:
+		return
+
+	wiki = get(request.sid)
+	if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
+		file = wiki.dbWrapper.getFile(pathStr)
+		if file:
+			notified = sessionManager.notifySubscribers("render_wikipage",request.sid,jsondata=pathStr)
+			if not notified:
+				socketio.emit("open_browser", pathStr, room = request.sid)
+	else:
+		error("you have to initialize the project first", request.sid)
 
 socketio.run(app, host="127.0.0.1", port=9000)
 	
 
+	

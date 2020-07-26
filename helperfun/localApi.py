@@ -17,7 +17,7 @@ def currentView():
 			return sublime.active_window().active_view()
 	return None
 
-def runWindowCommand(root_folder,commandname,args):
+def runWindowCommand(root_folder,commandname,args = None):
 	for window in sublime.windows():
 		if pathManager.root_folder(window) == root_folder:
 			window.run_command(commandname,args)

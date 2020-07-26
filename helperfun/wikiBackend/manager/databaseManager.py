@@ -12,7 +12,8 @@ from . import responseGenerator
 from .libs import mistletoe
 from .libs.mistletoe.ast_renderer import ASTRenderer
 from . import backendMetadataParser
-
+from . import sessionManager
+from . import pathManager
 
 def list_of_imagelinks(md_ast):
 	objs = []
@@ -84,6 +85,13 @@ def parseContentMistletoe(content):
 	#print(tree)
 	return tree
 
+def md2html(content,path):
+	try:
+		tree = mistletoe.markdown(content,path=path)
+		return tree
+	except Exception as e:
+		return str(e)
+
 def extractFiles(jsondata):
 	f = []
 	if "files" in jsondata:
@@ -109,10 +117,13 @@ class DbWrapper:
 			self.db = SqliteExtDatabase(os.path.join(self.wiki.root_folder,"wikiconfig","wiki.db"))
 			self.db.connect()
 		except Exception as e:
-			print(e)
+			print("exception while connint to db:",str(e))
 			return False
 
 		return self.hasConnection()
+
+	def closeConnection(self):
+		self.db.close()
 
 	def resetTables(self):
 		self.dropTables()
@@ -121,7 +132,11 @@ class DbWrapper:
 	def hasConnection(self):
 		return bool(self.db)
 
-	def checkIndex(self,json_project_structure):
+	def checkIndex(self):
+		json_project_structure = pathManager.path_to_dict(self.wiki.root_folder)
+		if not json_project_structure:
+			return false
+
 		filesJson = extractFiles(json_project_structure)
 
 
@@ -137,11 +152,12 @@ class DbWrapper:
 					upToDate = file["lastmodified"] == dbFile.lastmodified
 					if not upToDate:
 						self.updateFile(file["path"],file["content"],file["lastmodified"])
-						print("updated",file["path"])
-						print(models.Content.get(models.Content.filepath == dbFile.fullpath).headers)
+						#print("updated",file["path"])
+						#print(models.Content.get(models.Content.filepath == dbFile.fullpath).headers)
 					else:
-						print("file is up to date",file["path"])
-						print(models.Content.get(models.Content.filepath == dbFile.fullpath).headers)
+						#print("file is up to date",file["path"])
+						#print(models.Content.get(models.Content.filepath == dbFile.fullpath).headers)
+						pass
 
 					filesJson.remove(file)
 					dbFiles.remove(dbFile)
@@ -152,13 +168,13 @@ class DbWrapper:
 		#leftovers in db
 		if dbFiles:
 			for f in dbFiles:
-				print("deleting leftover",f.fullpath)
+				#print("deleting leftover",f.fullpath)
 				self.deleteFile(f.fullpath)
 
 
 		if filesJson:
 			for f in filesJson:
-				print("inserting new file",f["path"])
+				#print("inserting new file",f["path"])
 				self.insertFile(f["path"],f["content"],f["lastmodified"])
 
 		return True
@@ -181,26 +197,41 @@ class DbWrapper:
 
 	def filesChanged(self,queueDict):
 		q = queueDict["queue"]
+		filesChangedEvent = False
+		updateWikipageEvent = False
+		updatedPaths = []
 
 		for entry in q:
+			if not entry["valid"]:
+				continue
 			response = None
 			if entry["type"] == "modified":
 				response = self.updateFile(entry["srcPath"],entry["content"],entry["lastmodified"])
+				updatedPaths.append(entry["srcPath"])
+				updateWikipageEvent = True
 
 			elif entry["type"] == "created":
 				response = self.insertFile(entry["srcPath"],entry["content"],entry["lastmodified"])
+				filesChangedEvent = True
 
 			elif entry["type"] == "deleted":
 				response = self.deleteFile(entry["srcPath"])
+				filesChangedEvent = True
 
 			elif entry["type"] == "moved":
 				response = self.moveFile(entry["srcPath"],entry["destPath"])
-
+				filesChangedEvent = True
 			else:
 				return responseGenerator.createExceptionResponse("files_changed event data is corrupted")
 
 			if response["status"] == "exception":
 				return response
+
+		if filesChangedEvent:
+			sessionManager.notifySubscribers("files_changed",self.wiki.sid)
+		if updateWikipageEvent:
+			for path in updatedPaths:
+				sessionManager.notifySubscribers("update_wikipage",self.wiki.sid,path=path)
 
 		return responseGenerator.createSuccessResponse("processed files_changed event")
 
@@ -237,7 +268,7 @@ class DbWrapper:
 					textdict = ""
 					headers = json.dumps(list_of_headers(json.loads(tree)))
 					footnotes = json.dumps(list_of_footnotes(json.loads(tree)))
-					contentupdateQuery = models.Content.update(textdict = textdict, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes).where(models.Content.filepath == path)
+					contentupdateQuery = models.Content.update(textdict = textdict, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes, rawString = content).where(models.Content.filepath == path)
 					contentupdateQuery.execute()
 
 					return responseGenerator.createSuccessResponse("updated file: " + json.dumps({"path":path,"lastmodified":lastmodified}))
@@ -269,7 +300,8 @@ class DbWrapper:
 			headers = json.dumps(list_of_headers(json.loads(tree)))
 			footnotes = json.dumps(list_of_footnotes(json.loads(tree)))
 
-			c = self.modeldict["content"].create(textdict = textdict, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes, filepath=persisted_file.fullpath)
+			c = self.modeldict["content"].create(textdict = textdict, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes, rawString = content,filepath=persisted_file.fullpath)
+			foundfile = self.getFile(path)
 			return responseGenerator.createSuccessResponse("inserted file: " + path)
 
 		except Exception as E:
@@ -294,6 +326,15 @@ class DbWrapper:
 		with self.db.bind_ctx(models.modellist):
 			initProject(self.db,self.modeldict,json)
 
+	def wikipageHtml(self,path):
+		content = models.Content.get_or_none(models.Content.filepath == path)
+		if content:
+			html = md2html(content.rawString,path)
+			meta = '<meta http-equiv="refresh" content="5" />'
+			return html
+
+		return "wikipage doesnt exist yet"
+
 
 	def selFolders(self):
 		with self.db.bind_ctx(models.modellist):
@@ -313,7 +354,7 @@ class DbWrapper:
 				#print("name",f.name)
 				#print("ext",f.extension)
 				#print("path",f.relpath)
-				print("full",f.fullpath)
+				#print("full",f.fullpath)
 				#print("folderid:",f.folderid)
 				#print("___________________________")
 				l.append(f)

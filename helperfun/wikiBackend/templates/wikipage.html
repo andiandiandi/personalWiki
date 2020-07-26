@@ -1,0 +1,107 @@
+<!doctype html>
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>{{wikipageName}}</title>
+		<link rel="stylesheet" href="{{ url_for('static', filename='wikipageLayout.css') }}">
+		<link rel="stylesheet" href="{{ url_for('static', filename='folderPageLayout.css') }}">
+		<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet"/>
+	</head>
+	<body>
+			<div style="position: absolute; left: 50%;">
+			    <div style="position: relative; left: -50%;">
+			     	{{wikipageHtml|safe}}
+			    </div>
+			  </div>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
+		<script type="text/javascript">
+			var sid = {{sid|tojson}}
+			var path = {{path|tojson}}
+			var dirpath = {{dirpath|tojson}}
+
+			var absUri = new RegExp('^(?:[a-z]+:)?//', 'i');
+
+
+			function escapeRegExp(string) {
+ 				 return string.replace(/[.*+\-?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+			}
+
+			function replaceAll(str, find, replace) {
+ 				 return str.replace(new RegExp(escapeRegExp(find), 'g'), replace);
+			}
+
+			function absoluteUrl(path){
+				encodedStr = encodeURIComponent(path)
+				var url = "http://localhost:9000/" + sid + "/" + encodedStr.toString()
+				return url	
+			}
+
+			function normalize(path){
+			    path = Array.prototype.join.apply(arguments,['/'])
+			    var sPath;
+			    while (sPath!==path) {
+			        sPath = n(path);
+			        path = n(sPath);
+			    }
+			    function n(s){return s.replace(/\/+/g,'/').replace(/\w+\/+\.\./g,'')}
+			    return path.replace(/^\//,'').replace(/\/$/,'');
+			}
+
+			function resolveRelativeImages(){
+				var images = document.getElementsByTagName('img'); 
+				for(var i = 0; i < images.length; i++) {
+					image = images[i]
+					src = image.getAttribute("src")
+					console.log("src",src)
+					if (!absUri.test(src)){
+						dirname = replaceAll(dirpath,"\\","//")
+						resolvedpath = normalize(dirname + "//" + src)
+						image.setAttribute("src",resolvedpath)
+					}
+				}
+			}
+
+			function attachClicklistenerToHrefs(){
+				var links = document.getElementsByTagName('a');
+
+
+				for(var i = 0; i< links.length; i++){
+					links[i].onclick = function(){
+						wikilink = this.dataset.wikilink
+						if(wikilink){
+							newHref = absoluteUrl(wikilink)
+							this.setAttribute("href",newHref)
+							return true
+						}
+						return true
+					}
+				}
+			}
+
+
+
+			window.onload = function() {
+				resolveRelativeImages()
+			  	attachClicklistenerToHrefs();
+			};
+			var ioSocket = io("http://localhost:9000/events");
+			ioSocket.on("connect",function(msg){
+				ioSocket.emit("subscribe",JSON.stringify([{"eventname":"render_wikipage","targetsid":sid},{"eventname":"update_wikipage","targetsid":sid,"path":path}]))
+			})
+			ioSocket.on('render_wikipage', function(path) {
+						var url = absoluteUrl(path)
+						if(window.location.href !== url){
+							window.location.href = url
+					}
+					return false
+	           });
+			ioSocket.on('update_wikipage', function(notUsedFlag) {
+					window.location.reload()
+					return false
+				});
+			ioSocket.on("disconnect",function(msg){
+				return false
+			})
+		</script>
+	</body>
+</html>

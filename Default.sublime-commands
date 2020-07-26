@@ -23,5 +23,9 @@
     {
         "caption": "print project structure",
         "command": "print_project_structure"
+    },
+    {
+        "caption": "open Wikipage in Browser",
+        "command": "render_wikipage"
     }
 ]

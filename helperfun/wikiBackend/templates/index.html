@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Opened Notebooks</title>
+    </head>
+    <body>
+        {% for sid in sids %}
+        <div>
+        	<p>
+    			<a href="{{ url_for('fileHierarchy',sid=sid) }}"
+				   title="mehr Informationen">
+				    {{ sid }}
+				</a>
+       			 </b>
+   			</p>
+   		</div>
+        {% endfor %}
+    </body>
+</html>

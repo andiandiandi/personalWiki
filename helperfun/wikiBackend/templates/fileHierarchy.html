@@ -1,0 +1,76 @@
+<!doctype html>
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>File Hierarchy</title>
+		<link rel="stylesheet" href="{{ url_for('static', filename='wikipageLayout.css') }}">
+		<link rel="stylesheet" href="{{ url_for('static', filename='folderPageLayout.css') }}">
+		<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet"/>
+	</head>
+	<body>
+		<div class="row">
+			<div class="column left">
+			</div>
+			<div class="column middle">
+				<div id="hierarchy">
+					{{fileHierarchy(root_folder)|safe}}
+				</div>
+			</div>
+			<div class="column right">
+			</div>
+		</div>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
+		<script type="text/javascript">
+		var sid = {{sid|tojson}}
+			
+		var hierarchy = document.getElementById("hierarchy");
+		hierarchy.addEventListener("click", function(event){
+		var elem = event.target;
+		if(elem.tagName.toLowerCase() == "span" && elem !== event.currentTarget)
+		{
+		var type = elem.classList.contains("folder") ? "folder" : "file";
+		if(type=="file")
+		{
+		encodedStr = encodeURIComponent(elem.getAttribute("data-fullpath"))
+					var url = "http://localhost:9000/" + sid + "/" + encodedStr.toString()
+					window.location.href = url
+					return false
+		}
+		if(type=="folder")
+		{
+		var isexpanded = elem.dataset.isexpanded=="true";
+		if(isexpanded)
+		{
+		elem.classList.remove("fa-folder-o");
+		elem.classList.add("fa-folder");
+		}
+		else
+		{
+		elem.classList.remove("fa-folder");
+		elem.classList.add("fa-folder-o");
+		}
+		elem.dataset.isexpanded = !isexpanded;
+		var toggleelems = [].slice.call(elem.parentElement.children);
+		var classnames = "file,foldercontainer,noitems".split(",");
+		toggleelems.forEach(function(element){
+		if(classnames.some(function(val){return element.classList.contains(val);}))
+		element.style.display = isexpanded ? "none":"block";
+		});
+		}
+		}
+		});
+
+		var ioSocket = io("http://localhost:9000/events");
+		ioSocket.on("connect",function(msg){
+			ioSocket.emit("subscribe",JSON.stringify([{"eventname":"files_changed","targetsid":sid}]))
+		})
+		ioSocket.on('files_changed', function(msg) {
+               location.reload();
+				return false;
+           });
+		ioSocket.on("disconnect",function(msg){
+			return false
+		})
+		</script>
+	</body>
+</html>

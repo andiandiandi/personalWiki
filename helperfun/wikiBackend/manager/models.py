@@ -54,6 +54,7 @@ class Content(Model):
 	headers = CharField()
 	footnotes = CharField()
 	filepath = ForeignKeyField(File)
+	rawString = CharField()
 
 
 modellist = [File,Folder,Content,DatabaseMetadata]

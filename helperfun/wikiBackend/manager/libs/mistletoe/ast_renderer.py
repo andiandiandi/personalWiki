@@ -6,6 +6,13 @@ import json
 from .base_renderer import BaseRenderer
 
 class ASTRenderer(BaseRenderer):
+
+    def __init__(self, *extras,path=None):
+        self.path = path
+        super().__init__()
+
+
+
     def render(self, token):
         """
         Returns the string representation of the AST.

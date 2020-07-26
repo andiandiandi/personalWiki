@@ -1,3 +1,4 @@
+
 import logging
 import sys
 import time
@@ -13,7 +14,7 @@ from watchdog.observers import Observer
 
 from . import sessionManager
 from . import localApi
-
+from threading import Lock
 
 class FileEventHandler(PatternMatchingEventHandler):
 
@@ -22,31 +23,51 @@ class FileEventHandler(PatternMatchingEventHandler):
 		self.connection = connection
 
 		self.historyQueue = deque()
+		self.lock = Lock()
 
 	def on_moved(self, event):
-		self.historyQueue.append({"type":"moved",
-								"srcPath":event.src_path,
-							 "destPath":event.dest_path
-					})
+		self.accessQueue("moved",event)
 
 	def on_created(self, event):
-		self.historyQueue.append({"type":"created",
-								"srcPath":event.src_path})
+		self.accessQueue("created",event)
 
 	def on_deleted(self, event):
-		self.historyQueue.append({"type":"deleted",
-								"srcPath":event.src_path})
+		self.accessQueue("deleted",event)
 
 	def on_modified(self, event):
-		self.historyQueue.append({"type":"modified",
-								"srcPath":event.src_path})
+		self.accessQueue("modified",event)
+
+	def accessQueue(self,accessType,event=None):
+		try:
+			with self.lock:
+				if accessType == "fetch":
+					dCopy = copy.deepcopy(self.historyQueue)
+					self.historyQueue.clear()
+					return dCopy
+				elif accessType == "modified":
+					self.historyQueue.append({"type":"modified",
+									"srcPath":event.src_path,
+									"valid":True})
+				elif accessType == "created":
+					self.historyQueue.append({"type":"created",
+									"srcPath":event.src_path,
+									"valid":True})
+				elif accessType == "deleted":
+					self.historyQueue.append({"type":"deleted",
+									"srcPath":event.src_path,
+									"valid":True})
+				elif accessType == "moved":
+					self.historyQueue.append({"type":"moved",
+									"srcPath":event.src_path,
+								 "destPath":event.dest_path,
+								 "valid" : True
+						})
+		except Exception as e:
+			print(str(e))
 
 
 	def fetch(self):
-		dCopy = copy.deepcopy(self.historyQueue)
-		self.historyQueue.clear()
-
-		return dCopy
+		return self.accessQueue("fetch")
 
 
 
@@ -71,21 +92,28 @@ class FileListener:
 			while self.connection and self.connection.isConnected():
 				time.sleep(4)
 				q = self.event_handler.fetch()
+				modifiedBookkeeping = {}
 				if q:
 					for d in q:
 						if d["type"] == "modified" or d["type"] == "created":
-							d["content"] = FileListener.readFile(d["srcPath"])
 							d["lastmodified"] = FileListener.readModifiedValue(d["srcPath"])
-# 
+							print("here1")
+							if d["srcPath"] in modifiedBookkeeping and modifiedBookkeeping[d["srcPath"]] == d["lastmodified"]:
+								print("here2")
+								d["valid"] = False
+							else:
+								print("here3")
+								d["content"] = FileListener.readFile(d["srcPath"])
+								modifiedBookkeeping[d["srcPath"]] = d["lastmodified"]
 					dict_wrapper = {"queue":[entry for entry in q]}
-
+					print(dict_wrapper)
 					self.connection.filesChanged(dict_wrapper)
 			self.observer.stop()
 		except Exception as e:
-			print(e)
+			print("exception",str(e))
 			self.observer.stop()
 		self.observer.join()
-		print(self.connection.isConnected())
+		print("connected?",self.connection.isConnected())
 
 		print("stopped observer")
 

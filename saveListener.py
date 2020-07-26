@@ -20,6 +20,7 @@ class SaveListener(sublime_plugin.ViewEventListener):
 
 
 	def on_deactivated(self):
+		return
 		if self.modified:
 			#SaveListener.saveFile(self.view.file_name())
 			self.view.run_command("save")

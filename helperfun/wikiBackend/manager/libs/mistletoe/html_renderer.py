@@ -4,6 +4,7 @@ HTML renderer for mistletoe.
 
 import re
 import sys
+import os
 from itertools import chain
 from urllib.parse import quote
 from .block_token import HTMLBlock
@@ -14,6 +15,14 @@ if sys.version_info < (3, 4):
 else:
     import html
 
+urlRegex = re.compile(
+        r'^(?:http|ftp)s?://' # http:// or https://
+        r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|' #domain...
+        r'localhost|' #localhost...
+        r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})' # ...or ip
+        r'(?::\d+)?' # optional port
+        r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+
 
 class HTMLRenderer(BaseRenderer):
     """
@@ -21,11 +30,12 @@ class HTMLRenderer(BaseRenderer):
 
     See mistletoe.base_renderer module for more info.
     """
-    def __init__(self, *extras):
+    def __init__(self, *extras,path=None):
         """
         Args:
             extras (list): allows subclasses to add even more custom tokens.
         """
+        self.path = path
         self._suppress_ptag_stack = [False]
         super().__init__(*chain((HTMLBlock, HTMLSpan), extras))
         # html.entities.html5 includes entitydefs not ending with ';',
@@ -72,14 +82,29 @@ class HTMLRenderer(BaseRenderer):
         return template.format(token.src, self.render_to_plain(token), title)
 
     def render_link(self, token):
-        template = '<a href="{target}"{title}>{inner}</a>'
+        template = '<a href="{target}"{title} {wikilink}>{inner}</a>'
         target = self.escape_url(token.target)
+        wikilink = ''
+        if self.path:
+            if not re.match(urlRegex,target):
+                print("PATH",self.path)
+                dirname = os.path.dirname(self.path)
+                dirname = dirname.replace("\\","/")
+                print("DIRNAME",dirname)
+                if target.startswith("/"):
+                    target = target[1:]
+                unresolved_rel_path = os.path.join(dirname,target)
+                print("UNRES",unresolved_rel_path)
+                normpath = os.path.normpath(unresolved_rel_path)
+                print(normpath)
+                wikilink = ' data-wikilink="{}"'.format(normpath)
+
         if token.title:
             title = ' title="{}"'.format(self.escape_html(token.title))
         else:
             title = ''
         inner = self.render_inner(token)
-        return template.format(target=target, title=title, inner=inner)
+        return template.format(target=target, title=title, wikilink=wikilink, inner=inner)
 
     def render_auto_link(self, token):
         template = '<a href="{target}">{inner}</a>'

@@ -62,22 +62,28 @@ def path_to_plugin_folder():
 
 def createFile(full_path):
 	d = {}
+	print("adding",full_path)
 	d["path"] = full_path
 	d["content"] = open(full_path, 'r', encoding='utf8').read()
 	d["lastmodified"] = os.path.getmtime(full_path)
 	return d
 
+def isFile(path,extension=None):
+	if extension:
+		return os.path.isfile(path) and extension == extension_of_filepath(path)
+	return os.path.isfile(path) 
+
 def path_to_dict(path):
 	d = None
 	if os.path.isdir(path):
 		if os.path.basename(path) != "wikiconfig":
-			d = {'name': os.path.basename(path) }
+			d = {'name': os.path.basename(path)}
 			d['type'] = "folder"
 			directFolders = [path_to_dict(os.path.join(path,x)) for x in os.listdir(path) if os.path.isdir(os.path.join(path,x))]
 			d['folders'] = []
 			for folder in directFolders:
 				if folder:
 					d['folders'].append(folder)
-			d['files'] = [createFile(os.path.join(path,f)) for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
+			d['files'] = [createFile(os.path.join(path,f)) for f in os.listdir(path) if isFile(os.path.join(path, f),extension=".md")]
 	return d
 
