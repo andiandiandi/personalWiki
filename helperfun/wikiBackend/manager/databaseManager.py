@@ -16,6 +16,7 @@ from .libs.mistletoe.ast_renderer import ASTRenderer
 from . import backendMetadataParser
 from . import sessionManager
 from . import pathManager
+from .pathManager import Filetype
 
 def list_of_imagelinks(md_ast):
 	objs = []
@@ -178,7 +179,7 @@ class DbWrapper:
 			if filesJson:
 				for f in filesJson:
 					print("inserting new file",f["path"])
-					response = self.insertFile(f["path"],f["content"],f["lastmodified"])
+					response = self.insertFile(f["path"],f["content"],f["lastmodified"],f["filetype"])
 					if response["status"] == "exception":
 						return response
 
@@ -188,18 +189,21 @@ class DbWrapper:
 			return responseGenerator.createExceptionResponse("could not index files:" + str(E))
 
 	def deleteFile(self,fullpath):
-		fileInDb = self.getFile(fullpath)
-		if not fileInDb:
-			return responseGenerator.createExceptionResponse("could not delete file, file not found: " + fullpath)
+		with self.db.bind_ctx(models.modellist):
+			fileInDb = self.getFile(fullpath)
+			if not fileInDb:
+				return responseGenerator.createExceptionResponse("could not delete file, file not found: " + fullpath)
 
-		try:
-			associatedContent = models.Content.get(models.Content.fileid == fileInDb.id)
-			fileInDb.delete_instance()
-			associatedContent.delete_instance()
+			"""
+			try:
+				associatedContent = models.Content.get(models.Content.fileid == fileInDb.id)
+				associatedContent.delete_instance()
+			"""
+				fileInDb.delete_instance()
 
-			return responseGenerator.createSuccessResponse("deleted file: " + fullpath)
-		except Exception as E:
-			return responseGenerator.createExceptionResponse("could not delete file: " + fullpath + " | " + str(E))
+				return responseGenerator.createSuccessResponse("deleted file: " + fullpath)
+			except Exception as E:
+				return responseGenerator.createExceptionResponse("could not delete file: " + fullpath + " | " + str(E))
 
 
 	def filesChanged(self,queueDict):
@@ -244,33 +248,34 @@ class DbWrapper:
 			return responseGenerator.createSuccessResponse("processed files_changed event")
 
 	def moveFile(self,srcPath,destPath, lastmodified):
-		try:
-			fileInDb = self.getFile(srcPath)
-			if not fileInDb:
-				return responseGenerator.createExceptionResponse("could not move file, file not found: " + srcPath)
-			fileWithDestPath = self.getFile(destPath)
-			if fileWithDestPath:
-				return responseGenerator.createExceptionResponse("could not move file, file with destination path already exists: " + destPath)
+		with self.db.bind_ctx(models.modellist):
+			try:
+				fileInDb = self.getFile(srcPath)
+				if not fileInDb:
+					return responseGenerator.createExceptionResponse("could not move file, file not found: " + srcPath)
+				fileWithDestPath = self.getFile(destPath)
+				if fileWithDestPath:
+					return responseGenerator.createExceptionResponse("could not move file, file with destination path already exists: " + destPath)
 
-			name = pathManager.filename(destPath)
-			extension = pathManager.extension(destPath)
-			relpath = pathManager.relpath(destPath)
-			updateFileQuery = models.File.update(fullpath=destPath,name=name,extension=extension,relpath=relpath,lastmodified=lastmodified).where(models.File.fullpath == srcPath)
-			updateFileQuery.execute()
+				name = pathManager.filename(destPath)
+				extension = pathManager.extension(destPath)
+				relpath = pathManager.relpath(destPath)
+				updateFileQuery = models.File.update(fullpath=destPath,name=name,extension=extension,relpath=relpath,lastmodified=lastmodified).where(models.File.fullpath == srcPath)
+				updateFileQuery.execute()
 
-			if os.path.dirname(srcPath) == os.path.dirname(destPath):
-				response = self.fileRenamedTrigger()
-				if response["status"] == "exception":
-					return response					
+				if os.path.dirname(srcPath) == os.path.dirname(destPath):
+					response = self.fileRenamedTrigger()
+					if response["status"] == "exception":
+						return response					
 
-			return responseGenerator.createSuccessResponse("moved file: " + json.dumps({"srcpath":srcPath,"destpath":destPath,"lastmodified":lastmodified}))
-
-
-		except Exception as E:
-			return responseGenerator.createExceptionResponse("could not move file: " + srcPath + " to " + destPath + " | " + str(E))
+				return responseGenerator.createSuccessResponse("moved file: " + json.dumps({"srcpath":srcPath,"destpath":destPath,"lastmodified":lastmodified}))
 
 
-	def updateFile(self,path, content, lastmodified):
+			except Exception as E:
+				return responseGenerator.createExceptionResponse("could not move file: " + srcPath + " to " + destPath + " | " + str(E))
+
+
+	def updateFile(self,path, content, lastmodified, filetype):
 		with self.db.bind_ctx(models.modellist):
 			fileInDb = self.getFile(path)
 			if not fileInDb:
@@ -279,18 +284,16 @@ class DbWrapper:
 			fileupdateQuery = models.File.update(lastmodified = lastmodified).where(models.File.fullpath == path)
 			rows = fileupdateQuery.execute()
 			if rows > 0:
-				try:
-					tree = parseContentMistletoe(content)
-					#textdict = json.dumps(parseText(tree))
-					imagelinks = json.dumps(list_of_imagelinks(json.loads(tree)))
-					textlinks = json.dumps(list_of_textlinks(json.loads(tree)))
-					textdict = ""
-					headers = json.dumps(list_of_headers(json.loads(tree)))
-					footnotes = json.dumps(list_of_footnotes(json.loads(tree)))
-					contentupdateQuery = models.Content.update(textdict = textdict, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes, rawString = content).where(models.Content.fileid == fileInDb.id)
-					contentupdateQuery.execute()
 
-					return responseGenerator.createSuccessResponse("updated file: " + json.dumps({"path":path,"lastmodified":lastmodified}))
+
+				response = None
+				if filetype == Filetype.wikipage:
+					response = updateWikipage(fileid,content)
+				elif filetype == Filetype.image:
+					response = updateImage(fileid,content)
+
+				if reponse["status"] == "exception":
+					return response 
 
 				except Exception as E:
 					return responseGenerator.createExceptionResponse("exception while updating file: " + path + " ! " + str(E))
@@ -298,34 +301,78 @@ class DbWrapper:
 
 			return responseGenerator.createExceptionResponse("could not update file: " + path)
 
+	def updateWikipage(self,fileid,content):
+		with self.db.bind_ctx(models.modellist):
+			try:
+				tree = parseContentMistletoe(content)
+				#textdict = json.dumps(parseText(tree))
+				imagelinks = json.dumps(list_of_imagelinks(json.loads(tree)))
+				textlinks = json.dumps(list_of_textlinks(json.loads(tree)))
+				textdict = ""
+				headers = json.dumps(list_of_headers(json.loads(tree)))
+				footnotes = json.dumps(list_of_footnotes(json.loads(tree)))
+				contentupdateQuery = models.Content.update(textdict = textdict, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes, rawString = content).where(models.Content.fileid == fileid)
+				contentupdateQuery.execute()
+
+				return responseGenerator.createSuccessResponse("updated wikipage with fileid: " + fileid)
+
+			except Exception as E:
+				return responseGenerator.createExceptionResponse("exception while updating wikipage: " + str(E))
+
+
 	def fileRenamedTrigger(self):
 		return responseGenerator.createSuccessResponse("trigger")
 
-	def insertFile(self,path,content,lastmodified):
-		try:
-			fileExists = self.getFile(path)
-			if fileExists:
-				return self.updateFile(path,content,lastmodified)
-			name = pathManager.filename(path)
-			extension = pathManager.extension(path)
-			relpath = pathManager.relpath(path)
-			lastmodified = lastmodified
-			#persisted_file = self.modeldict["jsonfile"].create(fullpath = fullpath, name=basename_no_extension,extension=extension,relpath=relpath, lastmodified = lastmodified, folderid=parentID)
-			persisted_file = self.modeldict["file"].create(fullpath = path, name = name, extension = extension, relpath = relpath, lastmodified = lastmodified)
-			tree = parseContentMistletoe(content)
-			#textdict = json.dumps(parseText(tree))
-			imagelinks = json.dumps(list_of_imagelinks(json.loads(tree)))
-			textlinks = json.dumps(list_of_textlinks(json.loads(tree)))
-			textdict = ""
-			headers = json.dumps(list_of_headers(json.loads(tree)))
-			footnotes = json.dumps(list_of_footnotes(json.loads(tree)))
+	def insertFile(self,path,content,lastmodified,filetype):
+		with self.db.bind_ctx(models.modellist):
+			try:
+				fileExists = self.getFile(path)
+				if fileExists:
+					return self.updateFile(path,content,lastmodified)
+				name = pathManager.filename(path)
+				extension = pathManager.extension(path)
+				relpath = pathManager.relpath(path)
+				lastmodified = lastmodified
+				#persisted_file = self.modeldict["jsonfile"].create(fullpath = fullpath, name=basename_no_extension,extension=extension,relpath=relpath, lastmodified = lastmodified, folderid=parentID)
+				persisted_file = self.modeldict["file"].create(fullpath = path, name = name, extension = extension, relpath = relpath, lastmodified = lastmodified)
+			
+				response = None
+				if filetype == Filetype.wikipage:
+					response = insertWikipage(fileid,content)
+				elif filetype == Filetype.image:
+					response = insertImage(fileid,content)
 
-			c = self.modeldict["content"].create(textdict = textdict, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes, rawString = content,fileid=persisted_file.id)
-			foundfile = self.getFile(path)
-			return responseGenerator.createSuccessResponse("inserted file: " + path)
+				if reponse["status"] == "exception":
+					return response
 
-		except Exception as E:
-			return responseGenerator.createExceptionResponse("exception while inserting file: " + path + " | " + str(E))
+				return responseGenerator.createSuccessResponse("inserted file with content: " + path)
+
+			except Exception as E:
+				return responseGenerator.createExceptionResponse("exception while inserting file: " + path + " | " + str(E))
+
+	def insertImage(self,fileid,content):
+		with self.db.bind_ctx(models.modellist):
+			try:
+				c = self.modeldict["image"].create(base64 = content,fileid=fileid)
+			except Exception as E:
+				return responseGenerator.createExceptionResponse("exception while inserting image: " + str(E))
+
+	def insertWikipage(self,fileid,content):
+		with self.db.bind_ctx(models.modellist):
+			try:
+				tree = parseContentMistletoe(content)
+				#textdict = json.dumps(parseText(tree))
+				imagelinks = json.dumps(list_of_imagelinks(json.loads(tree)))
+				textlinks = json.dumps(list_of_textlinks(json.loads(tree)))
+				textdict = ""
+				headers = json.dumps(list_of_headers(json.loads(tree)))
+				footnotes = json.dumps(list_of_footnotes(json.loads(tree)))
+				c = self.modeldict["content"].create(textdict = textdict, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes, rawString = content,fileid=fileid)
+			
+				return responseGenerator.createSuccessResponse("inserted wikipage:" + fileid)
+			except Exception as E:
+				return responseGenerator.createExceptionResponse("exception while inserting wikipage: " + str(E))
+				
 
 	def clearDatabase(self):
 		try:
@@ -347,15 +394,16 @@ class DbWrapper:
 			initProject(self.db,self.modeldict,json)
 
 	def wikipageHtml(self,path):
-		file = self.getFile(path)
-		if file:
-			content = models.Content.get_or_none(models.Content.fileid == file.id)
-			if content:
-				html = md2html(content.rawString,path)
-				meta = '<meta http-equiv="refresh" content="5" />'
-				return html
+		with self.db.bind_ctx(models.modellist):
+			file = self.getFile(path)
+			if file:
+				content = models.Content.get_or_none(models.Content.fileid == file.id)
+				if content:
+					html = md2html(content.rawString,path)
+					meta = '<meta http-equiv="refresh" content="5" />'
+					return html
 
-		return "wikipage doesnt exist yet"
+			return "wikipage doesnt exist yet"
 
 	def selContent(self):
 		with self.db.bind_ctx(models.modellist):

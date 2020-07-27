@@ -20,6 +20,11 @@ class Folder(BaseModel):
 	id = AutoField()
 	parentid = ForeignKeyField("self", null = True, backref = "children")
 
+class Image(BaseModel):
+	id = AutoField()
+	base64 = CharField()
+	fileid = ForeignKeyField(File, on_delete = 'CASCADE')
+
 class File(BaseModel):
 	id = AutoField(primary_key=True)
 	fullpath = CharField(column_name='fullpath')
@@ -40,8 +45,8 @@ class Content(Model):
 	imagelinks = CharField()
 	headers = CharField()
 	footnotes = CharField()
-	fileid = ForeignKeyField(File)
+	fileid = ForeignKeyField(File, on_delete = 'CASCADE')
 	rawString = CharField()
 
 
-modellist = [File,Folder,Content,DatabaseMetadata]
+modellist = [File,Image,Folder,Content,DatabaseMetadata]

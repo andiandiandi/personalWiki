@@ -1,7 +1,7 @@
 import os
 import time
 import threading
-from enum import Enum  
+from enum import Enum
 
 from . import databaseManager
 from . import pathManager

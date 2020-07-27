@@ -1,4 +1,8 @@
+
+import base64
 import os
+from enum import Enum
+
 
 def basename_w_ext_of_path(full_filepath_with_name):
 	temp = os.path.splitext(os.path.basename(full_filepath_with_name))
@@ -13,9 +17,6 @@ def folder_has_file(folder,full_path_of_file):
 			for filename in files:
 				if(filename == os.path.basename(full_path_of_file)):
 					return True
-
-def extract_fileextension(full_filepath_with_name):
-	return os.path.splitext(os.path.basename(full_filepath_with_name))[1]
 
 def path_to_helperfun():
 	return os.path.dirname(__file__)
@@ -45,16 +46,42 @@ def relpath(path):
 def path_to_plugin_folder():
 	return resolve_relative_path(path_to_helperfun(),"..")
 
+
+class Filetype(Enum):
+	wikipage = 0
+	image = 1
+
+
+def filetype(extension):
+	if extension == ".md":
+		return Filetype.wikipage
+	elif extension in [".jpg",".jpeg",".png",".gif"]:
+		return Filetype.image
+
 def createFile(full_path):
+	broken = False
 	d = {}
 	d["path"] = full_path
-	d["content"] = open(full_path, 'r', encoding='utf8').read()
+	d["filetype"] = filetype(extension(full_path))
+
+	if d["filetype"] == Filetype.wikipage:
+		d["content"] = open(full_path, 'r', encoding='utf8').read()
+	elif d["filetype"] == Filetype.image:
+		with open(full_path, "rb") as imageFile:
+			strContent = base64.encode(imageFile.read())
+			d["content"] = strContent
+	else:
+		broken = True
+
 	d["lastmodified"] = os.path.getmtime(full_path)
+	if broken:
+		d["content"] = "BROKEN CONTENT"
+
 	return d
 
-def isFile(path,extension=None):
-	if extension:
-		return os.path.isfile(path) and extension == extension_of_filepath(path)
+def isFile(path,extensionConstraints=None):
+	if extensionConstraints:
+		return os.path.isfile(path) and extension(path) in extensionConstraints
 	return os.path.isfile(path) 
 
 def path_to_dict(path):
@@ -68,6 +95,6 @@ def path_to_dict(path):
 			for folder in directFolders:
 				if folder:
 					d['folders'].append(folder)
-			d['files'] = [createFile(os.path.join(path,f)) for f in os.listdir(path) if isFile(os.path.join(path, f),extension=".md")]
+			d['files'] = [createFile(os.path.join(path,f)) for f in os.listdir(path) if isFile(os.path.join(path, f),extensionConstraints=[".md",".png",".jpg",".gif"])]
 	return d
 
