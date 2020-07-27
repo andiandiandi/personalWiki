@@ -93,13 +93,14 @@ class FileListener:
 				if self.wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
 					if q:
 						for d in q:
-							if d["type"] == "modified" or d["type"] == "created":
-								d["lastmodified"] = FileListener.readModifiedValue(d["srcPath"])
+							if d["type"] == "modified" or d["type"] == "created" or d["type"] == "moved":
+								d["lastmodified"] = FileListener.readModifiedValue(d["srcPath"] if d["type"] != "moved" else d["destPath"])
 								if d["srcPath"] in modifiedBookkeeping and modifiedBookkeeping[d["srcPath"]] == d["lastmodified"]:
 									d["valid"] = False
 								else:
-									d["content"] = FileListener.readFile(d["srcPath"])
 									modifiedBookkeeping[d["srcPath"]] = d["lastmodified"]
+								if d["type"] != "moved":
+									d["content"] = FileListener.readFile(d["srcPath"])
 						modifiedBookkeeping.clear()
 						dict_wrapper = {"queue":[entry for entry in q]}
 						result = self.wiki.dbWrapper.filesChanged(dict_wrapper)

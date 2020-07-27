@@ -30,6 +30,18 @@ def resolve_relative_path(base_path,relative_navigation):
 
 	return resolved_abs_path
 
+def filename(path):
+	base = os.path.basename(path)
+	return os.path.splitext(base)[0]
+		
+def extension(path):
+	base = os.path.basename(path)
+	return os.path.splitext(base)[1]
+
+def relpath(path):
+	return os.path.dirname(path)
+
+
 def path_to_plugin_folder():
 	return resolve_relative_path(path_to_helperfun(),"..")
 

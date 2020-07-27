@@ -36,6 +36,33 @@ def on_initializeProject(sid,jsonStr):
 	else:
 		connections[sid].emit("project_initialized","successfully initialized project", room = sid)
 
+def on_initializeProject(sid,root_folder,Socket):
+	wiki = sessionManager.wiki(sid)
+	if not wiki:
+		success = sessionManager.register(sid,Socket)
+		if not success:
+			error("could not register wiki,socketid:",sid)
+		connections[sid] = Socket
+	wiki = get(sid)
+	response = wiki.initializeProject(root_folder)
+	if response["status"] == "exception":
+		error("exception while init project: " + response["response"], sid)
+	elif response["status"] == "success":
+		connections[sid].emit("project_initialized","successfully initialized project", room = sid)
+	else:
+		connections[sid].emit("project_initialized","uninteded behaviour while init project", room = sid)
+
+
+def on_selFiles(sid,jsonStr):
+	wiki = get(sid)
+	content = wiki.dbWrapper.selFilesDEBUG()
+	connections[sid].emit("sel_files",str(content),room=sid)
+
+def on_moveFile(sid,srcPath,destPath):
+	wiki = get(sid)
+	response = wiki.dbWrapper.moveFile(srcPath,destPath,1234)
+	connections[sid].emit("files_changed",str(response),room=sid)
+
 def on_clearDB(sid,jsonStr):
 	wiki = get(sid)
 	if wiki.dbStatus == sessionManager.DbStatus.notConnected:

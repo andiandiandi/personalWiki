@@ -43,7 +43,19 @@ class DisconnectWikiCommand(sublime_plugin.TextCommand):
 		if sessionManager.hasProject(root_folder):
 			sessionManager.remove(root_folder)
 
+class SelContentCommand(sublime_plugin.TextCommand):
+	
+	def run(self,edit):
+		root_folder = pathManager.root_folder()
+		con = sessionManager.connection(root_folder)
+		con.selContent()
 
+class SelFilesCommand(sublime_plugin.TextCommand):
+	
+	def run(self,edit):
+		root_folder = pathManager.root_folder()
+		con = sessionManager.connection(root_folder)
+		con.selFiles()
 
 class SearchQueryHeadersCommand(sublime_plugin.TextCommand):
 	

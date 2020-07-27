@@ -14,11 +14,12 @@ level
 
 def headerHandler(files,rootelement,rootvalues,db):
 	elemn = extn(rootelement)
+	filesv = extv(files)
+	filesn = extn(files)
+
 	if elemn:
-		return fetch_without_element("headers",db)
+		return fetch_without_element("headers",filesv,filesn,db)
 	else:	
-		filesv = extv(files)
-		filesn = extn(files)
 		with db.bind_ctx(models.modellist):
 			#elementmapping {'headers': <CharField: Content.headers>, 'footnotes': <CharField: Content.footnotes>, 'textlinks': <CharField: Content.textlinks>, 'imagelinks': <CharField: Content.imagelinks>}
 			#rootelement {'negate': False, 'value': 'headers'}
@@ -27,17 +28,22 @@ def headerHandler(files,rootelement,rootvalues,db):
 			if filesn:
 				if filesv:
 					query = (models.File.select(elementmapping[rootelement["value"]],models.File.name,models.File.extension,models.File.relpath)
-										.join(models.Content).where(models.File.name.concat(models.File.extension).not_in(filesv)))
+										.join(models.Content).where(~models.File.fileIn(filesv)))
 				else:
 					query = (models.File.select(elementmapping[rootelement["value"]],models.File.name,models.File.extension,models.File.relpath)
 										.join(models.Content))
 			else:
 				if filesv:
 					query = (models.File.select(elementmapping[rootelement["value"]],models.File.name,models.File.extension,models.File.relpath)
-										.join(models.Content).where(models.File.name.concat(models.File.extension).in_(filesv)))
+										.join(models.Content).where(models.File.fileIn(filesv)))
+
+					#query = (models.File.select(elementmapping[rootelement["value"]],models.File.name,models.File.extension,models.File.relpath)
+					#					.join(models.Content).where(models.File.name.concat(models.File.extension).in_(filesv)))
 				else:
 					query = (models.File.select(elementmapping[rootelement["value"]],models.File.name,models.File.extension,models.File.relpath)
 										.join(models.Content))
+			for x in query:
+				print(x.name)
 
 			if query:
 				return parseQuery(query,rootelement,rootvalues)
@@ -101,7 +107,6 @@ def parseQuery(query,rootelement,rootvalues):
 		if debug:
 			print("parsed",parsed)
 		if parsed:
-			retobj = createFile(file.name,file.extension,file.relpath)
 			for element in parsed:
 				if debug:
 					print("ele",element)
@@ -142,32 +147,54 @@ def parseQuery(query,rootelement,rootvalues):
 										fulfilled = False
 										break
 				if fulfilled:
+					retobj = createFile(file.name,file.extension,file.relpath)
 					retobj["span"].append(element["span"])
-			toret.append(retobj)
+					toret.append(retobj)
 										
+	if toret:
+		return toret
+	return None
 
-	return toret
-
-def fetch_without_element(elementname,db):
+def fetch_without_element(elementname,filesv,filesn,db):
 	tofetch = elementmapping[elementname]
 	if tofetch:
 		with db.bind_ctx(models.modellist):
-			query = (models.File.select(tofetch)
-						.join(models.Content))
+			if filesn:
+				if filesv:
+					query = (models.File.select(tofetch,models.File.name,models.File.extension,models.File.relpath)
+							.join(models.Content).where(~models.File.fileIn(filesv)))
+										
+				else:
+					query = (models.File.select(tofetch,models.File.name,models.File.extension,models.File.relpath)
+							.join(models.Content))
+
+			else:
+				if filesv:
+					query = (models.File.select(tofetch,models.File.name,models.File.extension,models.File.relpath)
+							.join(models.Content).where(models.File.fileIn(filesv)))
+
+				else:
+					query = (models.File.select(tofetch,models.File.name,models.File.extension,models.File.relpath)
+							.join(models.Content))
 			toret = []
 			for file in query:
-				content = getattr(file,"content")
-				element = getattr(content,elementname)
-				d = json.loads(element)
-				if not d:
-					toret.append(createRet(file.name,file.extension,file.relpath,None))
-			return toret
+				contentColumn = getattr(file.content,elementname)
+				try:
+					contentColumnJSON = json.loads(contentColumn)
+					if not contentColumnJSON:
+						toret.append(createRet(file.name,file.extension,file.relpath,None))
+
+				except Exception as E:
+					print("exp in fetchWithoutElement:" + str(E))
+					continue
+			if toret:
+				return toret
+			return None
 
 def createFile(name,extension,relpath):
 	return {"file":{"name":name,"extension":extension,"path":relpath},"span":[]}
 
 def createRet(name,extension,relpath,span):
-	print("file",file)
 	return {"file":{"name":name,"extension":extension,"path":relpath},"span":span}
 
 def extv(obj):

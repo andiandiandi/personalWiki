@@ -85,6 +85,9 @@ class Connection:
 		self.socket.on("files_changed", self.filesChangedResponse)
 		self.socket.on("clear_db", self.clearWikiDatabaseResponse)
 		self.socket.on("open_browser", self.openBrowserResponse)
+		self.socket.on("sel_content",self.selContentResponse)
+		self.socket.on("sel_files",self.selFilesResponse)
+
 		self.lock = threading.Lock()
 		self.wikiState = WikiState.disconnected
 
@@ -109,7 +112,9 @@ class Connection:
 
 	def updateWikiState(self,newState):
 		self.wikiState = newState
+		print("ye")
 		if self.wikiState == WikiState.disconnected:
+			print("HERE!")
 			localApi.runWindowCommand(self.root_folder,"disconnect_wiki")
 
 	def connectedEvent(self):
@@ -119,11 +124,17 @@ class Connection:
 	def disconnectedEvent(self):
 		print("disconnected")
 		if self.wikiState != WikiState.disconnected:
-				self.updateWikiState(WikiState.disconnected)
+			self.updateWikiState(WikiState.disconnected)
 
 	def projectInitializeResponse(self, jsondata):
 		print("received projectInitializeResponse:", str(jsondata))
 		self.updateWikiState(WikiState.projectInitialized)
+
+	def selContentResponse(self,data):
+		print(data)
+
+	def selFilesResponse(self,data):
+		print(data)
 
 	def filesChangedResponse(self,jsondata):
 		print("filesres",jsondata)
@@ -170,6 +181,12 @@ class Connection:
 
 	def errorEvent(self,data):
 		localApi.error("Wiki server error: " + data)
+
+	def selContent(self):
+		self.send("sel_content","")
+
+	def selFiles(self):
+		self.send("sel_files","")
 
 	def clearWikiDatabase(self):
 		d = {"root_folder":self.root_folder}

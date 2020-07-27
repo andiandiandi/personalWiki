@@ -45,31 +45,37 @@ def on_disconnect():
 
 @socketio.on('initialize_project')
 def on_initializeProject(root_folder):
-	success = sessionManager.register(request.sid,socketio)
-	if not success:
-		error("could not register wiki,socketid:",sid)
+	wiki = sessionManager.wiki(request.sid)
+	if not wiki:
+		success = sessionManager.register(request.sid,socketio)
+		if not success:
+			error("could not register wiki,socketid:",sid)
+	wiki = get(request.sid)
+	response = wiki.initializeProject(root_folder)
+	if response["status"] == "exception":
+		error("exception while init project: " + response["response"], request.sid)
+	elif response["status"] == "success":
+		socketio.emit("project_initialized","successfully initialized project", room = request.sid)
 	else:
-		wiki = get(request.sid)
-		initialized = wiki.initializeProject(root_folder)
-		if not initialized:
-			error("something went wrong while initializing project", request.sid)
-		else:
-			socketio.emit("project_initialized","successfully initialized project", room = request.sid)
+		socketio.emit("project_initialized","uninteded behaviour while init project", room = request.sid)
+
 
 @socketio.on('clear_db')
 def on_clearDB(jsonStr):
 	wiki = get(request.sid)
-	if wiki.dbStatus == sessionManager.DbStatus.notConnected:
-		realJson = json.loads(jsonStr)
-		root_folder = realJson["root_folder"]
-		connected = wiki.connectToDatabase(root_folder)
-		if not connected:
-			error("could not connect to database",request.sid)
-			return
-			
-	result = wiki.dbWrapper.clearDatabase()
-	socketio.emit("clear_db", json.dumps(result), room = request.sid)
-
+	if wiki:
+		if wiki.dbStatus == sessionManager.DbStatus.notConnected:
+			realJson = json.loads(jsonStr)
+			root_folder = realJson["root_folder"]
+			connected = wiki.connectToDatabase(root_folder)
+			if not connected:
+				error("could not connect to database",request.sid)
+				return
+				
+		result = wiki.dbWrapper.clearDatabase()
+		socketio.emit("clear_db", json.dumps(result), room = request.sid)
+	else:
+		error("initialize project first", request.sid)
 @socketio.on('search_query')
 def on_searchQuery(jsonStr):
 	wiki = get(request.sid)
@@ -186,6 +192,19 @@ def on_fileDeleted(jsonStr):
 def on_fileMoved(jsonStr):
 	pass
 
+@socketio.on('sel_content')
+def on_selContent(jsonStr):
+	wiki = get(request.sid)
+	content = wiki.dbWrapper.selContent()
+	socketio.emit("sel_content",str(content),room=request.sid)
+
+@socketio.on('sel_files')
+def on_selFiles(jsonStr):
+	wiki = get(request.sid)
+	content = wiki.dbWrapper.selFilesDEBUG()
+	socketio.emit("sel_files",str(content),room=request.sid)
+
+
 @socketio.on('render_wikipage')
 def on_renderWikipage(pathStr):
 	if type(pathStr) != str:
@@ -200,6 +219,8 @@ def on_renderWikipage(pathStr):
 				socketio.emit("open_browser", pathStr, room = request.sid)
 	else:
 		error("you have to initialize the project first", request.sid)
+
+
 
 socketio.run(app, host="127.0.0.1", port=9000)
 	

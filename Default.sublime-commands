@@ -27,5 +27,13 @@
     {
         "caption": "open Wikipage in Browser",
         "command": "render_wikipage"
+    },
+     {
+        "caption": "sel content",
+        "command": "sel_content"
+    },
+    {
+        "caption": "sel files",
+        "command": "sel_files"
     }
 ]

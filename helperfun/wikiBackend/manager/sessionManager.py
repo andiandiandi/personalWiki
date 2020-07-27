@@ -120,12 +120,15 @@ class Wiki:
 
 		if self.dbStatus.value >= DbStatus.connectionEstablished.value:
 			self.root_folder = root_folder
-			noerror = self.dbWrapper.checkIndex()
-			if noerror:
+			response = self.dbWrapper.checkIndex()
+			print("checkindexRES",response)
+			if response["status"] != "exception":
 				self.dbStatus = DbStatus.projectInitialized
 				self.startFileListener()
 
 				return responseGenerator.createSuccessResponse("project initialized")
+			else:
+				return response
 
 		return responseGenerator.createExceptionResponse("could not initialize project")
 

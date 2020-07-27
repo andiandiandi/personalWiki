@@ -1,7 +1,10 @@
 from .libs.peewee.peewee import *
+
 from .libs.peewee.playhouse import hybrid
 
+from random import randrange
 import os
+import inspect
 
 db = None
 
@@ -18,34 +21,18 @@ class Folder(BaseModel):
 	parentid = ForeignKeyField("self", null = True, backref = "children")
 
 class File(BaseModel):
-	_fullpath = CharField(primary_key=True)
-	_name = CharField()
-	_extension = CharField()
-	_relpath = CharField()
-	lastmodified = FloatField()
+	id = AutoField(primary_key=True)
+	fullpath = CharField(column_name='fullpath')
+	name = CharField(column_name='name')
+	extension = CharField(column_name='extension')
+	relpath = CharField(column_name='relpath')
+	lastmodified = FloatField(column_name='lastmodified')
 
-	@hybrid.hybrid_property
-	def fullpath(self):
-		return self._fullpath
+	@hybrid.hybrid_method
+	def fileIn(self,filesv):
+		filename = self.name.concat(self.extension)
+		return filename.in_(filesv)
 
-	@fullpath.setter
-	def set_fullpath(self, fullpath):
-		# code to process counter comes here
-		self._fullpath = fullpath
-		self._name = os.path.splitext(os.path.basename(fullpath))[0] or None
-		self._extension = os.path.splitext(fullpath)[1] or None
-		self._relpath = os.path.dirname(fullpath) or None
-
-	@hybrid.hybrid_property
-	def name(self):
-		return self._name
-	@hybrid.hybrid_property
-	def extension(self):
-		return self._extension
-	@hybrid.hybrid_property
-	def relpath(self):
-		return self._relpath
-		
 class Content(Model):
 	id = AutoField()
 	textdict = CharField()
@@ -53,7 +40,7 @@ class Content(Model):
 	imagelinks = CharField()
 	headers = CharField()
 	footnotes = CharField()
-	filepath = ForeignKeyField(File)
+	fileid = ForeignKeyField(File)
 	rawString = CharField()
 
 
