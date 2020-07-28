@@ -57,6 +57,8 @@ def register(sid,socket):
 
 def remove(sid):
 	if sid in wikis:
+		wikis[sid].cleanup()
+		wikis[sid] = None
 		del wikis[sid]
 
 def wiki(sid):
@@ -113,6 +115,13 @@ class Wiki:
 	def send(self,event,strdata):
 		self.socket.emit(event, strdata, room = self.sid)
 
+	def cleanup(self):
+		if self.fileListener:
+			self.fileListener.stop()
+		if self.dbWrapper:
+			self.dbWrapper.closeConnection()
+			del self.dbWrapper
+
 	#returns false when something goes wrong
 	def initializeProject(self, root_folder):
 		if self.dbStatus == DbStatus.notConnected:
@@ -120,8 +129,11 @@ class Wiki:
 
 		if self.dbStatus.value >= DbStatus.connectionEstablished.value:
 			self.root_folder = root_folder
+			if self.fileListener and self.fileListener.isRunning():
+				self.fileListener.pause()
 			response = self.dbWrapper.checkIndex()
-			print("checkindexRES",response)
+			if self.fileListener and self.fileListener.isPaused():
+				self.fileListener.resume()
 			if response["status"] != "exception":
 				self.dbStatus = DbStatus.projectInitialized
 				self.startFileListener()
@@ -144,15 +156,10 @@ class Wiki:
 		return responseGenerator.createExceptionResponse("could not connect to Database")
 
 	def startFileListener(self):
+		if self.fileListener and self.fileListener.isRunning():
+			return
 		self.filelistener = projectListener.FileListener(self)
 		self.filelistener.start()
 
 	def send(self,event,jsondata):
 		self.socket.emit(event,jsondata,room=self.sid)
-
-	def __del__(self):
-		if self.fileListener:
-			self.fileListener.stop()
-		if self.dbWrapper:
-			self.dbWrapper.closeConnection()
-			del self.dbWrapper

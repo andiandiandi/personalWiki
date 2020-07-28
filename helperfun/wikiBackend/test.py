@@ -39,22 +39,39 @@ d = {
 #socketFakeServer.on_connect(123,Socket())
 socket = Socket()
 
-socketFakeServer.on_initializeProject(123,root_folder,socket)
-socketFakeServer.on_clearDB(123,json.dumps({"root_folder":root_folder}))
-socketFakeServer.on_initializeProject(123,root_folder,socket)
-#f2 = socketFakeServer.on_selFiles(123,"")
-#print(f2)
-filename = "C:\\Users\\Andre\\Desktop\\nowiki\\testfolder\\subtestfolder\\s\\ka.md"
-filename2 = "C:\\Users\\Andre\\Desktop\\nowiki\\testfolder\\subtestfolder\\s\\ak.md"
+
+onefilewiki = "C:\\Users\\Andre\\Desktop\\onefilewiki"
+
+filename = "C:\\Users\\Andre\\Desktop\\onefilewiki\\subfolder\\wikipage.md"
+filename2 = "C:\\Users\\Andre\\Desktop\\onefilewiki\\subfolder\\renamedpage.md"
+
+socketFakeServer.on_initializeProject(123,onefilewiki,socket)
+f2 = socketFakeServer.on_selFiles(123,"")
+print(f2)
+f3 = socketFakeServer.on_fileRenamed(123,filename,filename2)
+socketFakeServer.on_disconnect(123)
+
+"""
+
+filename = "C:\\Users\\Andre\\Desktop\\nowiki\\testfolder\\images\\logo\\logo.jpg"
+filename2 = "C:\\Users\\Andre\\Desktop\\nowiki\\testfolder\\images\\logo\\ogol.jpg"
 socketFakeServer.on_moveFile(123,filename,filename2)
-#f3 = socketFakeServer.on_selFiles(123,"")
-#print(f3)
+f3 = socketFakeServer.on_selFiles(123,"")
+print(f3)
 socketFakeServer.on_moveFile(123,filename2,filename)
-#f4 = socketFakeServer.on_selFiles(123,"")
-#print(f4)
+f4 = socketFakeServer.on_selFiles(123,"")
+print(f4)
+
+f5 = socketFakeServer.on_selImages(123,"")
+print(f5)
+
+"""
+
+"""
 socketFakeServer.on_searchQuery(123,json.dumps(jsonsearch))
 socketFakeServer.on_disconnect(123)
 
+"""
 #socketFakeServer.on_filesChanged(123,json.dumps(changedata))
 
 

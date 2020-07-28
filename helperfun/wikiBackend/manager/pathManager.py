@@ -2,6 +2,7 @@
 import base64
 import os
 from enum import Enum
+import io
 
 
 def basename_w_ext_of_path(full_filepath_with_name):
@@ -31,6 +32,16 @@ def resolve_relative_path(base_path,relative_navigation):
 
 	return resolved_abs_path
 
+def writeFiles(pathContentDict):
+	print("HERE",pathContentDict)
+	for path, content in pathContentDict.items():
+		try:
+			with io.open(path, 'w', encoding = 'utf-8') as file:
+				file.write(content)
+		except Exception as E:
+			print("EX" + str(E) + "<" + type(E).__name__)
+			continue
+
 def filename(path):
 	base = os.path.basename(path)
 	return os.path.splitext(base)[0]
@@ -42,10 +53,13 @@ def extension(path):
 def relpath(path):
 	return os.path.dirname(path)
 
+def extensionNoDot(path):
+	base = os.path.basename(path)
+	ext = os.path.splitext(base)[1]
+	return ext[1:]
 
 def path_to_plugin_folder():
 	return resolve_relative_path(path_to_helperfun(),"..")
-
 
 class Filetype(Enum):
 	wikipage = 0
@@ -53,22 +67,25 @@ class Filetype(Enum):
 
 
 def filetype(extension):
-	if extension == ".md":
+	if extension == "md":
 		return Filetype.wikipage
-	elif extension in [".jpg",".jpeg",".png",".gif"]:
+	elif extension in ["jpg","jpeg","png","gif"]:
 		return Filetype.image
+	else:
+		return None
 
 def createFile(full_path):
 	broken = False
 	d = {}
 	d["path"] = full_path
-	d["filetype"] = filetype(extension(full_path))
+	d["extension"] = extensionNoDot(full_path)
 
-	if d["filetype"] == Filetype.wikipage:
+
+	if filetype(d["extension"]) == Filetype.wikipage:
 		d["content"] = open(full_path, 'r', encoding='utf8').read()
-	elif d["filetype"] == Filetype.image:
+	elif filetype(d["extension"]) == Filetype.image:
 		with open(full_path, "rb") as imageFile:
-			strContent = base64.encode(imageFile.read())
+			strContent = base64.b64encode(imageFile.read())
 			d["content"] = strContent
 	else:
 		broken = True

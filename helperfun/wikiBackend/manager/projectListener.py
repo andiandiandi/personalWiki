@@ -69,6 +69,7 @@ class FileListener:
 	def __init__(self, wiki):
 		self.wiki = wiki
 		self.shouldRun = False
+		self.paused = False
 		self.event_handler = FileEventHandler(patterns=['*.md'],ignore_directories=True)
 		self.observer = Observer()
 
@@ -79,7 +80,20 @@ class FileListener:
 
 	def stop(self):
 		self.shouldRun = False
+		self.observer.join()
 		print("stopped filelistener")
+
+	def pause(self):
+		self.paused = True
+
+	def resume(self):
+		self.paused = False
+
+	def isPaused(self):
+		return self.paused
+
+	def isRunning(self):
+		return self.shouldRun
 
 	def startObserver(self):
 		print("started filelistener")
@@ -88,6 +102,10 @@ class FileListener:
 		try:
 			while self.shouldRun:
 				time.sleep(4)
+				if not self.shouldRun:
+					break
+				if self.isPaused():
+					continue
 				q = self.event_handler.fetch()
 				modifiedBookkeeping = {}
 				if self.wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
@@ -101,16 +119,22 @@ class FileListener:
 									modifiedBookkeeping[d["srcPath"]] = d["lastmodified"]
 								if d["type"] != "moved":
 									d["content"] = FileListener.readFile(d["srcPath"])
+								else:
+									if d["srcPath"] == d["destPath"]:
+										d["valid"] = False
+
 						modifiedBookkeeping.clear()
 						dict_wrapper = {"queue":[entry for entry in q]}
 						result = self.wiki.dbWrapper.filesChanged(dict_wrapper)
 						self.wiki.send("files_changed",str(result) + " | " + json.dumps(dict_wrapper))
-			self.observer.stop()
 		except Exception as e:
-			self.wiki.send("error","exception in startObeserver:" + str(e))
+			self.wiki.send("error","exception in startObeserver:" + str(e) + " | " + type(e).__name__)
 			self.observer.stop()
 			self.wiki.dbStatus = sessionManager.DbStatus.connectionEstablished
+		self.observer.stop()
 		self.observer.join()
+		print("stopped filelistener")
+		
 
 	@staticmethod
 	def readFile(path):

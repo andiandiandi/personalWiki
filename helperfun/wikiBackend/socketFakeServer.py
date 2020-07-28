@@ -58,6 +58,17 @@ def on_selFiles(sid,jsonStr):
 	content = wiki.dbWrapper.selFilesDEBUG()
 	connections[sid].emit("sel_files",str(content),room=sid)
 
+def on_selImages(sid,jsonStr):
+	wiki = get(sid)
+	content = wiki.dbWrapper.selImagesDEBUG()
+	connections[sid].emit("sel_images",str(content),room=sid)
+
+def on_fileRenamed(sid,srcPath,destPath):
+	wiki = get(sid)
+	content = wiki.dbWrapper.fileRenamedTrigger(srcPath,destPath,"md")
+	connections[sid].emit("file_renamed",str(content),room=sid)
+
+
 def on_moveFile(sid,srcPath,destPath):
 	wiki = get(sid)
 	response = wiki.dbWrapper.moveFile(srcPath,destPath,1234)
