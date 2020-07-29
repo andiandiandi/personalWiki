@@ -125,6 +125,9 @@ class Wiki:
 	#returns false when something goes wrong
 	def initializeProject(self, root_folder):
 		if self.dbStatus == DbStatus.notConnected:
+			response = pathManager.checkupWikiconfig(root_folder)
+			if response["status"] == "exception":
+				return response
 			self.connectToDatabase(root_folder)
 
 		if self.dbStatus.value >= DbStatus.connectionEstablished.value:

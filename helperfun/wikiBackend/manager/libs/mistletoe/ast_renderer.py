@@ -7,7 +7,7 @@ from .base_renderer import BaseRenderer
 
 class ASTRenderer(BaseRenderer):
 
-    def __init__(self, *extras,path=None):
+    def __init__(self, *extras,path=None,wikilinks=None,base64PathDict=None):
         self.path = path
         super().__init__()
 

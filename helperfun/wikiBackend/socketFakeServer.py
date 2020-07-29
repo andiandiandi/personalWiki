@@ -52,6 +52,10 @@ def on_initializeProject(sid,root_folder,Socket):
 	else:
 		connections[sid].emit("project_initialized","uninteded behaviour while init project", room = sid)
 
+def on_wikipageHTML(sid,path):
+	wiki = get(sid)
+	content = wiki.dbWrapper.wikipageHtml(path)
+	connections[sid].emit("on_wikipageHTML",str(content),room=sid)
 
 def on_selFiles(sid,jsonStr):
 	wiki = get(sid)

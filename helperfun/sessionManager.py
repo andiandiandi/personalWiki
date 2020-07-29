@@ -23,7 +23,6 @@ connections = {}
 _zombieCollector = None
 
 def cleanup():
-	print("cleaning up")
 	for root_folder in connections:
 		con = connections[root_folder]
 		con.disconnect()
@@ -33,8 +32,6 @@ def cleanup():
 def add(root_folder):
 	if not root_folder in connections:
 		connections[root_folder] = Connection(root_folder)
-		for c in connections:
-			print("c",c)
 
 	if not _zombieCollector:
 	   run_zombieCollector()
@@ -47,7 +44,6 @@ def add(root_folder):
 def remove(root_folder):
 	if root_folder in connections:
 		try:
-			print("removing",root_folder)
 			if connections[root_folder].isConnected():
 				connections[root_folder].disconnect()
 			del connections[root_folder]
@@ -105,24 +101,21 @@ class Connection:
 
 	def disconnect(self):
 		if self.socket.connected:
-			print("disconnecting")
 			self.socket.disconnect()
 			if self.wikiState != WikiState.disconnected:
 				self.updateWikiState(WikiState.disconnected)
 
 	def updateWikiState(self,newState):
 		self.wikiState = newState
-		print("ye")
+		print(newState)
 		if self.wikiState == WikiState.disconnected:
-			print("HERE!")
-			localApi.runWindowCommand(self.root_folder,"disconnect_wiki")
+			localApi.runWindowCommand(self.root_folder,"remove_wiki")
 
 	def connectedEvent(self):
 		print(self.socket.sid, "connected")
 		self.updateWikiState(WikiState.connected)
 
 	def disconnectedEvent(self):
-		print("disconnected")
 		if self.wikiState != WikiState.disconnected:
 			self.updateWikiState(WikiState.disconnected)
 

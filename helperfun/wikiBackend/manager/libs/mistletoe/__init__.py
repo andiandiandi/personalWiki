@@ -10,10 +10,10 @@ from .block_token import Document
 from .base_renderer import BaseRenderer
 from .html_renderer import HTMLRenderer
 
-def markdown(iterable, renderer=HTMLRenderer,path=None):
+def markdown(iterable, renderer=HTMLRenderer, path=None, wikilinks = None, base64PathDict=None):
 	"""
 	Output HTML with default settings.
 	Enables inline and block-level HTML tags.
 	"""
-	with renderer(path=path) as renderer:
+	with renderer(path=path,wikilinks=wikilinks, base64PathDict = base64PathDict) as renderer:
 		return renderer.render(Document(iterable))

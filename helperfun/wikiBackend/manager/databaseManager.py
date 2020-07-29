@@ -14,10 +14,17 @@ from . import responseGenerator
 
 from .libs import mistletoe
 from .libs.mistletoe.ast_renderer import ASTRenderer
-from . import backendMetadataParser
 from . import sessionManager
 from . import pathManager
 from .pathManager import Filetype
+
+urlRegex = re.compile(
+		r'^(?:http|ftp)s?://' # http:// or https://
+		r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|' #domain...
+		r'localhost|' #localhost...
+		r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})' # ...or ip
+		r'(?::\d+)?' # optional port
+		r'(?:/?|[/?]\S+)$', re.IGNORECASE)
 
 def list_of_imagelinks(md_ast):
 	objs = []
@@ -89,9 +96,9 @@ def parseContentMistletoe(content):
 	#print(tree)
 	return tree
 
-def md2html(content,path):
+def md2html(content,path,wikilinks=None,base64PathDict = None):
 	try:
-		tree = mistletoe.markdown(content,path=path)
+		tree = mistletoe.markdown(content,path=path,wikilinks=wikilinks,base64PathDict=base64PathDict)
 		return tree
 	except Exception as e:
 		return str(e)
@@ -130,7 +137,6 @@ class DbWrapper:
 
 	def closeConnection(self):
 		self.db.close()
-		print("closed connection")
 
 
 	def resetTables(self):
@@ -453,15 +459,45 @@ class DbWrapper:
 
 	def wikipageHtml(self,path):
 		with self.db.bind_ctx(models.modellist):
-			file = self.getFile(path)
-			if file:
-				content = models.Content.get_or_none(models.Content.fileid == file.id)
-				if content:
-					html = md2html(content.rawString,path)
-					meta = '<meta http-equiv="refresh" content="5" />'
-					return html
+			try:
+				file = self.getFile(path)
+				if file:
+					print("FOUND FILE",file.fullpath)
+					content = models.Content.get_or_none(models.Content.fileid == file.id)
+					if content:
+						base64PathDict = {}
+						wikilinks = content.textlinks	
+						print("FOUND CONTENT",content.fileid)
+						imagelinks = json.loads(content.imagelinks)
+						if imagelinks:
+							print("FOUND IMAGELINKS",imagelinks)
+							dirname = os.path.dirname(path)
+							l = {}
+							for entry in imagelinks:
+								relpath = entry["src"]
+								if not re.match(urlRegex,relpath):
+									if relpath.startswith("/"):
+										relpath = relpath[1:]
+									l[os.path.normpath(os.path.join(dirname,relpath))] = relpath
 
-			return "wikipage doesnt exist yet"
+							print("GATHERED L",l)
+
+							def DataUriGraphic(base64String,mimetype):
+								return "data:image/{0};base64,{1}".format(mimetype,base64String)
+
+							if l:
+								query = (models.File.select(models.File.fullpath,models.Image.base64,models.Image.mimetype).join(models.Image).where(models.File.fullpath.in_(list(l.keys()))))
+								for row in query:
+									relpath = l[row.fullpath]
+									base64PathDict[relpath] = DataUriGraphic(row.image.base64,row.image.mimetype)
+							print("BASE64DICT",base64PathDict)
+
+						html = md2html(content.rawString, path, wikilinks = content.textlinks, base64PathDict = base64PathDict)
+						return html
+					else:
+						return "CONTENT OF WIKIPAGE NOT FOUND IN DATABASE"
+			except Exception as E:
+				return "Exception while generating wikipage: " + str(E) + " | " + type(E).__name__
 
 	def selContent(self):
 		with self.db.bind_ctx(models.modellist):

@@ -29,7 +29,7 @@ class Socket:
 		print("************************************")
 		print("event",event)
 		print("data",jsondata)
-		print("sid",room)
+		print("sid",room) 
 
 d = {
     "root_folder": root_folder,
@@ -38,17 +38,17 @@ d = {
 
 #socketFakeServer.on_connect(123,Socket())
 socket = Socket()
-
+image = "C:\\Users\\Andre\\Desktop\\nowiki\\testfolder\\ddd.md"
 
 onefilewiki = "C:\\Users\\Andre\\Desktop\\onefilewiki"
 
 filename = "C:\\Users\\Andre\\Desktop\\onefilewiki\\subfolder\\wikipage.md"
 filename2 = "C:\\Users\\Andre\\Desktop\\onefilewiki\\subfolder\\renamedpage.md"
 
-socketFakeServer.on_initializeProject(123,onefilewiki,socket)
+socketFakeServer.on_initializeProject(123,root_folder,socket)
 f2 = socketFakeServer.on_selFiles(123,"")
 print(f2)
-f3 = socketFakeServer.on_fileRenamed(123,filename,filename2)
+socketFakeServer.on_wikipageHTML(123,image)
 socketFakeServer.on_disconnect(123)
 
 """

@@ -4,6 +4,7 @@ import os
 from enum import Enum
 import io
 
+from . import responseGenerator
 
 def basename_w_ext_of_path(full_filepath_with_name):
 	temp = os.path.splitext(os.path.basename(full_filepath_with_name))
@@ -115,3 +116,32 @@ def path_to_dict(path):
 			d['files'] = [createFile(os.path.join(path,f)) for f in os.listdir(path) if isFile(os.path.join(path, f),extensionConstraints=[".md",".png",".jpg",".gif"])]
 	return d
 
+
+def validateDb(root_folder):
+	dbpath = os.path.join(root_folder,"wikiconfig","wiki.db")
+	if exists(dbpath):
+		return True
+	else:
+		return False
+
+def touch(path):
+    with open(path, 'a'):
+        os.utime(path, None)
+
+def checkupWikiconfig(root_folder):
+
+	wikiconfigpath = os.path.join(root_folder,"wikiconfig")
+	if not exists(wikiconfigpath):
+		try:
+			os.makedirs(os.path.join(root_folder,"wikiconfig"))
+		except Exception as E:
+			return responseGenerator.createExceptionResponse("could not create wikiconfig folder : " + type(E).__name__ + " | " + str(E) )
+
+	wikiDbExists = validateDb(root_folder)
+	if not wikiDbExists:
+		try:
+			touch(os.path.join(root_folder,"wikiconfig","wiki.db"))
+		except Exception as E:
+			return responseGenerator.createExceptionResponse("could not create database file 'wiki.db' in wikiconfig : " + type(E).__name__ + " | " + str(E) )
+
+	return responseGenerator.createSuccessResponse("wikiconfig is valid")

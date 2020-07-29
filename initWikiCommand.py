@@ -36,12 +36,22 @@ class InitializeWikiProjectCommand(sublime_plugin.TextCommand):
 		else:
 			sublime.error_message("connect to wiki server before initializing the project")
 
-class DisconnectWikiCommand(sublime_plugin.TextCommand):
+
+class RemoveWikiCommand(sublime_plugin.TextCommand):
 	
 	def run(self,edit):
 		root_folder = pathManager.root_folder()
 		if sessionManager.hasProject(root_folder):
 			sessionManager.remove(root_folder)
+
+
+class DisconnectWikiCommand(sublime_plugin.TextCommand):
+	
+	def run(self,edit):
+		root_folder = pathManager.root_folder()
+		if sessionManager.hasProject(root_folder):
+			con = sessionManager.connection(root_folder)
+			con.disconnect()
 
 class SelContentCommand(sublime_plugin.TextCommand):
 	
@@ -95,16 +105,10 @@ class InitWikiCommand(sublime_plugin.TextCommand):
 		print(root_folder)
 
 		if sessionManager.hasProject(root_folder):
-			print("already connected")
+			sublime.error_message(root_folder + " already connected")
 			return
 		else:
-			configExists = validateWikiconfig(root_folder)
-			if not configExists:
-				os.makedirs(os.path.join(root_folder,"wikiconfig"))
-
-			wikiDbExists = validateDb(root_folder)
-			if not wikiDbExists:
-				touch(os.path.join(root_folder,"wikiconfig","wiki.db"))
+			
 
 			Connection = sessionManager.add(root_folder)
 			connected = Connection.connect()
@@ -124,26 +128,3 @@ def startServer():
                        creationflags=DETACHED_PROCESS).pid
 	print(pid)
 
-def validateWikiconfig(root_folder):
-	wikiconfigpath = os.path.join(root_folder,"wikiconfig")
-	if pathManager.exists(wikiconfigpath):
-		return True
-	else:
-		return False
-
-def validateDb(root_folder):
-	dbpath = os.path.join(root_folder,"wikiconfig","wiki.db")
-	if pathManager.exists(dbpath):
-		return True
-	else:
-		return False
-
-def createWikiconfig(root_folder):
-	pass
-
-def createWikidb(root_folder):
-	pass
-
-def touch(path):
-    with open(path, 'a'):
-        os.utime(path, None)
