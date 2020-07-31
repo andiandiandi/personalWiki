@@ -49,6 +49,7 @@ class Content(Model):
 	imagelinks = CharField()
 	headers = CharField()
 	footnotes = CharField()
+	wordsCharsReadtime = CharField()
 	fileid = ForeignKeyField(File, on_delete = 'CASCADE')
 	rawString = CharField()
 

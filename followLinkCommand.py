@@ -84,8 +84,8 @@ class FollowLinkCommand(sublime_plugin.TextCommand):
 			else:
 				#check if exists
 				root_folder = pathManager.root_folder_of_view(view)
-				if pathManager.folder_has_file(root_folder,self.full_path_of_link):
-					open_link_in_new_tab(self.view,self.full_path_of_link)
+				#f pathManager.folder_has_file(root_folder,self.full_path_of_link):
+				open_link_in_new_tab(self.view,self.full_path_of_link)
 
 
 def open_link_in_new_tab(view,filename):

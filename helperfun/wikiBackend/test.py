@@ -42,13 +42,14 @@ image = "C:\\Users\\Andre\\Desktop\\nowiki\\testfolder\\ddd.md"
 
 onefilewiki = "C:\\Users\\Andre\\Desktop\\onefilewiki"
 
-filename = "C:\\Users\\Andre\\Desktop\\onefilewiki\\subfolder\\wikipage.md"
+filename = "C:\\Users\\Andre\\Desktop\\onefilewiki\\subfolder\\ref.md"
 filename2 = "C:\\Users\\Andre\\Desktop\\onefilewiki\\subfolder\\renamedpage.md"
 
-socketFakeServer.on_initializeProject(123,root_folder,socket)
+socketFakeServer.on_initializeProject(123,onefilewiki,socket)
 f2 = socketFakeServer.on_selFiles(123,"")
 print(f2)
-socketFakeServer.on_wikipageHTML(123,image)
+f3 = socketFakeServer.on_wordCount(123,all=True)
+
 socketFakeServer.on_disconnect(123)
 
 """

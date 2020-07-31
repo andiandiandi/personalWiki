@@ -11,13 +11,11 @@ import subprocess
 from .helperfun import sessionManager
 from .helperfun import pathManager
 from .helperfun import localApi
-from .helperfun import projectListener
 
 
 imp.reload(sessionManager)
 imp.reload(pathManager)
 imp.reload(localApi)
-imp.reload(projectListener)
 
 def plugin_loaded():	
 	pass

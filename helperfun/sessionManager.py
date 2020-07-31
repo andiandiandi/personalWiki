@@ -1,4 +1,3 @@
-from . import configManager
 from . import pathManager
 from . import wikiSettingsManager
 from . import localApi
@@ -13,7 +12,6 @@ import os
 
 _CONNECTIONSTRING = "http://127.0.0.1:9000"
 
-imp.reload(configManager)
 imp.reload(pathManager)
 imp.reload(socketio)
 imp.reload(wikiSettingsManager)
@@ -83,7 +81,8 @@ class Connection:
 		self.socket.on("open_browser", self.openBrowserResponse)
 		self.socket.on("sel_content",self.selContentResponse)
 		self.socket.on("sel_files",self.selFilesResponse)
-
+		self.socket.on("word_count", self.wordCountResponse)
+		self.socket.on("create_wikilink", self.createWikilinkResponse)
 		self.lock = threading.Lock()
 		self.wikiState = WikiState.disconnected
 
@@ -123,11 +122,28 @@ class Connection:
 		print("received projectInitializeResponse:", str(jsondata))
 		self.updateWikiState(WikiState.projectInitialized)
 
+	def createWikilinkResponse(self,data):
+		try:
+			d = json.loads(data)
+			if d["type"] == "directlink":
+				files = d["files"]
+				localApi.runWindowCommand(self.root_folder,"create_wikilink",args={"files":files})
+			elif d["type"] == "create":
+				templates = d["templates"]
+				folders = d["folders"]
+				filename = d["filename"]
+				localApi.runWindowCommand(self.root_folder,"show_wikilink_options",args={"templates":templates,"folders":folders,"filename":filename})
+		except:
+			return
+
 	def selContentResponse(self,data):
 		print(data)
 
 	def selFilesResponse(self,data):
 		print(data)
+
+	def wordCountResponse(self,data):
+		localApi.runWindowCommand(self.root_folder,"show_word_count",args={"d":data})
 
 	def filesChangedResponse(self,jsondata):
 		print("filesres",jsondata)
@@ -175,6 +191,14 @@ class Connection:
 	def errorEvent(self,data):
 		localApi.error("Wiki server error: " + data)
 
+	def createWikilink(self,data):
+		if self.isConnected():
+			#self.send("create_wikilink", json.dumps({"filename":filename,"srcPath":srcPath}))
+			self.send("create_wikilink", json.dumps(data))
+		else:
+			localApi.error("connect to wiki server first")
+
+
 	def selContent(self):
 		self.send("sel_content","")
 
@@ -209,12 +233,6 @@ class Connection:
 		else:
 			localApi.error("connect to wiki server first")
 
-	def save(self,jsonfile):
-		 if self.isConnected():
-		 	self.send("save_file",json.dumps(jsonfile))
-		 else:
-		 	localApi.error("connect to wiki server first")
-
 	def filesChanged(self,data,updateEvent="all"):
 		jsondata = json.dumps(data)
 		apiEvent = None
@@ -231,6 +249,15 @@ class Connection:
 
 		if jsondata and apiEvent:
 			self.send(apiEvent,jsondata)
+
+	def wordCount(self,path=None):
+		if self.isConnected():
+			if path:
+				self.send("word_count",path)
+			else:
+				self.send("word_count","")
+		else:
+			localApi.error("connect to wiki server first")
 
 
 	def send(self,event,message):

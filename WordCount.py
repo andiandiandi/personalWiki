@@ -1,3 +1,36 @@
+import sublime
+import sublime_plugin
+
+import imp
+from .helperfun import sessionManager
+from .helperfun import pathManager
+
+imp.reload(sessionManager)
+imp.reload(pathManager)
+
+
+class WordCountCommand(sublime_plugin.TextCommand):
+	
+	def run(self,edit,searchWholeNotebook=False):
+		root_folder = pathManager.root_folder()
+		if sessionManager.hasProject(root_folder):
+			con = sessionManager.connection(root_folder)
+			if searchWholeNotebook:
+				print("ALL")
+				con.wordCount()
+			else:
+				print("single")
+				if self.view:
+					filepath = self.view.file_name()
+					if filepath:
+						con.wordCount(path=filepath)
+
+class ShowWordCountCommand(sublime_plugin.TextCommand):
+	def run(self,edit,d):
+		sublime.message_dialog(d)
+
+
+"""
 import sublime, sublime_plugin, re
 import threading
 from math import ceil as ceil
@@ -5,6 +38,13 @@ from os.path import basename
 import inspect
 import os
 import imp
+
+from .helperfun import pathManager
+from .helperfun import sessionManager
+
+imp.reload(sessionManager)
+imp.reload(pathManager)
+
 
 def plugin_loaded():
 	pass
@@ -41,8 +81,11 @@ class ShowWordcountCommand(sublime_plugin.TextCommand):
 
 	def run(self,edit, should_scan_whole_project = True):
 
-		if not wikiValidator.validate() == wikiValidator.ValidationResult.success:
-			return
+		root_folder = pathManager.root_folder()
+		if sessionManager.hasProject(root_folder):
+			con = sessionManager.connection(root_folder)
+			if not con.isConnected():
+				return
 
 		self.should_scan_whole_project = should_scan_whole_project
 
@@ -76,7 +119,7 @@ class ShowWordcountCommand(sublime_plugin.TextCommand):
 			for filename in files:
 				if self.is_syntax_supported(filename):
 					with open(os.path.join(folder,filename), 'r') as file_to_read:
-  						self.data_from_all_files += file_to_read.read()
+						self.data_from_all_files += file_to_read.read()
 
 		if len(self.data_from_all_files) < 10485760:
 			WordCountThread(view, [self.data_from_all_files], None, False, self.Pref).start()
@@ -87,10 +130,13 @@ class ShowWordcountCommand(sublime_plugin.TextCommand):
 		return view.window().extract_variables()['folder']
 
 	def start_scanning_current_view(self):
+		
+		view = self.view
+		if not view.file_name():
+			return
 
 		self.Pref = Controls(self.settings,self.should_scan_whole_project)
 
-		view = self.view
 		if self.is_syntax_supported(view.file_name()):
 			sel = view.sel()
 			if sel:
@@ -131,6 +177,7 @@ class ShowWordcountCommand(sublime_plugin.TextCommand):
 
 	@staticmethod
 	def path_to_fileextension(full_filepath_with_name):
+		print(full_filepath_with_name)
 		return os.path.splitext(os.path.basename(full_filepath_with_name))[1]
 
 class WordCountThread(threading.Thread):
@@ -192,6 +239,9 @@ class WordCountThread(threading.Thread):
 		#						<a href="close"><img src="{0}{1}" class="inlineImage" width="128" height="128"></a>
 		#				  """.format(content_type,content_image)
 
+
+
+"""
 		nav = lambda href: hide_image(view,image_linkname)
 
 		#self.view.add_phantom(image_linkname,region ,phantom_content,sublime.LAYOUT_BELOW, on_navigate = nav)
@@ -210,3 +260,4 @@ class WordCountThread(threading.Thread):
 
 
 		return words
+"""

@@ -1,17 +1,16 @@
+
+"""
 import sublime
 import sublime_plugin
-import mdpopups
 import os
 import imp
-from .wikipageTemplates import templateGenerator as templateGenerator
 
 def plugin_loaded():
-    imp.reload(templateGenerator)
+    pass
 
 
 class InsertMdLinkCommand(sublime_plugin.TextCommand):
     def run(self, edit, title, link):
-
         if not title or not link:
             return
         caret_region = self.view.sel()[0]
@@ -19,9 +18,6 @@ class InsertMdLinkCommand(sublime_plugin.TextCommand):
 
 class ToggleWikiwordCommand(sublime_plugin.TextCommand):
     def run(self, edit):
-
-        if not wikiValidator.validate() == wikiValidator.ValidationResult.success:
-            return
 
         view = self.view
 
@@ -125,3 +121,4 @@ class ToggleWikiwordCommand(sublime_plugin.TextCommand):
         print(abs_linked_filepath)
         self.view.replace(edit,selected_region,"[{0}]({1})".format(description,filelink))
         return self.view.sel()[0]
+"""

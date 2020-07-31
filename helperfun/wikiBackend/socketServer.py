@@ -204,6 +204,43 @@ def on_selFiles(jsonStr):
 	content = wiki.dbWrapper.selFilesDEBUG()
 	socketio.emit("sel_files",str(content),room=request.sid)
 
+@socketio.on('word_count')
+def on_wordCount(targetPath):
+	wiki = get(request.sid)
+	if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
+		result = wiki.dbWrapper.wordCount(path=targetPath) if len(targetPath)>1 else wiki.dbWrapper.wordCount()
+		socketio.emit("word_count", json.dumps(result), room = request.sid)
+	else:
+		error("you have to initialize the project first", request.sid)
+
+@socketio.on('create_wikilink')
+def on_createWikilink(jsonstr):
+	try:
+		d = json.loads(jsonstr)
+		wiki = get(request.sid)
+		if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
+			if d["type"] == "toggle":
+				word = d["word"]
+				srcPath = d["srcPath"]
+				result = wiki.dbWrapper.generateWikilinkData(word,srcPath)
+				socketio.emit("create_wikilink", json.dumps(result), room = request.sid)
+			elif d["type"] == "create":
+				filename = d["filename"]
+				template = d["template"]
+				folder = d["folder"]
+				result = wiki.dbWrapper.createWikilink(template,folder,filename)
+				if result["status"] == "exception":
+					error(result["response"], request.sid)
+				else:
+					socketio.emit("create_wikilink", json.dumps(result), room = request.sid)
+			else:
+				error("corrupted data string", request.sid)
+
+		else:
+			error("you have to initialize the project first", request.sid)
+	except Exception as E:
+		error("Error in 'create_wikilink'-event: " + str(E) + " | " + type(E).__name__, request.sid)
+
 
 @socketio.on('render_wikipage')
 def on_renderWikipage(pathStr):

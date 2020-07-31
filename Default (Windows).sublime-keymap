@@ -1,12 +1,12 @@
 [
-	{ "keys": ["ctrl+e"], "command": "toggle_wikiword" },
+	{ "keys": ["ctrl+e"], "command": "toggle_wikilink" },
 	{ "keys": ["ctrl+q"], "command": "preview_md_image" },
 	{ "keys": ["alt+w"], "command": "follow_link" },
 	{ "keys": ["alt+e"], "command": "navigate_wikipage"},
 	{ "keys": ["alt+q"], "command": "navigate_wikipage" , "args":{"forward": false} },
 	{ "keys": ["alt+h"], "command": "navigate_wikipage" , "args":{"home": true} },
-	{ "keys": ["ctrl+w"], "command": "show_wordcount" , "args":{ "should_scan_whole_project": false }},
-	{ "keys": ["ctrl+alt+w"], "command": "show_wordcount", "args":{ "should_scan_whole_project": true }},
+	{ "keys": ["ctrl+w"], "command": "word_count"},
+	{ "keys": ["ctrl+alt+w"], "command": "word_count", "args":{ "searchWholeNotebook": true }},
 	{ "keys": ["ctrl+alt+e"], "command": "check_for_broken_links", "args":{ "also_check_http": false }},
 
 	{ "keys": ["alt+t"], "command": "wiki_search" },

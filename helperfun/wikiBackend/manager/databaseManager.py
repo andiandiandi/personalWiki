@@ -17,6 +17,7 @@ from .libs.mistletoe.ast_renderer import ASTRenderer
 from . import sessionManager
 from . import pathManager
 from .pathManager import Filetype
+from . import wordCount
 
 urlRegex = re.compile(
 		r'^(?:http|ftp)s?://' # http:// or https://
@@ -146,6 +147,78 @@ class DbWrapper:
 	def hasConnection(self):
 		return bool(self.db)
 
+	def wordCount(self, path = None):
+		try:
+			if path:
+				file = self.getFile(path)
+				if file:
+					content = self.getContent(file.id)
+					if content:
+						textString = content.rawString
+						wordsChars = wordCount.countWordsCharReadtime(textString)		
+						return wordsChars
+
+					return responseGenerator.createExceptionResponse("Could not find content for wordCount: " + path)
+				return responseGenerator.createExceptionResponse("Could not find file for wordCount: " + path)
+
+			else:
+				with self.db.bind_ctx(models.modellist):
+					query = models.File.select(models.Content.wordsCharsReadtime).join(models.Content)
+					words = 0
+					chars = 0
+					readtimeInSeconds = 0
+					for row in query:
+						wordsCharsReadtime = json.loads(row.content.wordsCharsReadtime)
+						words += wordsCharsReadtime["words"]
+						chars += wordsCharsReadtime["chars"]
+						readtimeInSeconds += wordsCharsReadtime["readtimeInSeconds"]
+
+					return {"words":words,"chars":chars,"readtimeInSeconds":readtimeInSeconds}
+						
+		except Exception as E:
+			return responseGenerator.createExceptionResponse("could not count words,chars,readtime: " + (path if path else "query on whole notebook") + " | " + str(E) + " | " + type(E).__name__)
+
+	def generateWikilinkData(self,filename,srcPath):
+		with self.db.bind_ctx(models.modellist):
+
+			def listFiles(fileQuery):
+				l = []
+				for file in fileQuery:
+					d = {"title":filename,"link":os.path.relpath(file.fullpath,os.path.dirname(srcPath)),"tooltip":file.fullpath}
+					l.append(d)		
+				return l
+
+			fileQuery = models.File.select(models.File.fullpath).where(models.File.name == filename)
+			l = listFiles(fileQuery)
+			d = {}
+			if l:
+				d["type"] = "directlink"
+				d["files"] = l		
+			if not l:
+				d["type"] = "create"
+				d["filename"] = filename
+				d["templates"] = ["template1","template2"]
+				d["folders"] = pathManager.listFolders(self.wiki.root_folder)
+
+			return d
+
+	def createWikilink(self,template,folder,filename):
+		if folder.startswith(self.wiki.root_folder):
+			if not pathManager.exists(folder):
+				response = pathManager.createFolder(folder)
+				if response["status"] == "exception":
+					return response
+
+			realFilename = os.path.join(folder,filename + ".md")
+			response = pathManager.dump("asdf",realFilename)
+			if response["status"] == "exception":
+				return response
+
+			return responseGenerator.createSuccessResponse("created Wikilink: " + realFilename + ", " + "with template: " + template)
+
+		else:
+			return responseGenerator.createExceptionResponse("could not create Wikilink: " + filename + " | " + "folder not in notebook")
+
 	def checkIndex(self):
 		json_project_structure = pathManager.path_to_dict(self.wiki.root_folder)
 		if not json_project_structure:
@@ -154,7 +227,7 @@ class DbWrapper:
 		filesJson = extractFiles(json_project_structure)
 
 		try:
-			self.dropTables()
+			#self.dropTables()
 			self.createTables()
 			dbFiles = self.selFiles()
 			for dbFile in list(dbFiles):
@@ -338,7 +411,6 @@ class DbWrapper:
 			rows = fileupdateQuery.execute()
 			if rows > 0:
 
-
 				response = None
 				if pathManager.filetype(mimetype) == Filetype.wikipage:
 					response = self.updateWikipage(fileInDb.id,content)
@@ -374,7 +446,8 @@ class DbWrapper:
 				textdict = ""
 				headers = json.dumps(list_of_headers(json.loads(tree)))
 				footnotes = json.dumps(list_of_footnotes(json.loads(tree)))
-				contentupdateQuery = models.Content.update(textdict = textdict, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes, rawString = content).where(models.Content.fileid == fileid)
+				wordsCharsReadtime = json.dumps(wordCount.countWordsCharReadtime(content))
+				contentupdateQuery = models.Content.update(textdict = textdict, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes, rawString = content, wordsCharsReadtime=wordsCharsReadtime).where(models.Content.fileid == fileid)
 				contentupdateQuery.execute()
 
 				return responseGenerator.createSuccessResponse("updated wikipage with fileid: " + str(fileid))
@@ -392,7 +465,6 @@ class DbWrapper:
 				name = pathManager.filename(path)
 				extension = pathManager.extension(path)
 				relpath = pathManager.relpath(path)
-				lastmodified = lastmodified
 				#persisted_file = self.modeldict["jsonfile"].create(fullpath = fullpath, name=basename_no_extension,extension=extension,relpath=relpath, lastmodified = lastmodified, folderid=parentID)
 				persisted_file = self.modeldict["file"].create(fullpath = path, name = name, extension = extension, relpath = relpath, lastmodified = lastmodified)
 			
@@ -430,7 +502,8 @@ class DbWrapper:
 				textdict = ""
 				headers = json.dumps(list_of_headers(json.loads(tree)))
 				footnotes = json.dumps(list_of_footnotes(json.loads(tree)))
-				c = self.modeldict["content"].create(textdict = textdict, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes, rawString = content,fileid=fileid)
+				wordsCharsReadtime = json.dumps(wordCount.countWordsCharReadtime(content))
+				c = self.modeldict["content"].create(textdict = textdict, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes, rawString = content,wordsCharsReadtime=wordsCharsReadtime,fileid=fileid)
 
 				return responseGenerator.createSuccessResponse("inserted wikipage:" + str(fileid))
 
@@ -462,15 +535,12 @@ class DbWrapper:
 			try:
 				file = self.getFile(path)
 				if file:
-					print("FOUND FILE",file.fullpath)
 					content = models.Content.get_or_none(models.Content.fileid == file.id)
 					if content:
 						base64PathDict = {}
 						wikilinks = content.textlinks	
-						print("FOUND CONTENT",content.fileid)
 						imagelinks = json.loads(content.imagelinks)
 						if imagelinks:
-							print("FOUND IMAGELINKS",imagelinks)
 							dirname = os.path.dirname(path)
 							l = {}
 							for entry in imagelinks:
@@ -480,7 +550,6 @@ class DbWrapper:
 										relpath = relpath[1:]
 									l[os.path.normpath(os.path.join(dirname,relpath))] = relpath
 
-							print("GATHERED L",l)
 
 							def DataUriGraphic(base64String,mimetype):
 								return "data:image/{0};base64,{1}".format(mimetype,base64String)
@@ -490,7 +559,6 @@ class DbWrapper:
 								for row in query:
 									relpath = l[row.fullpath]
 									base64PathDict[relpath] = DataUriGraphic(row.image.base64,row.image.mimetype)
-							print("BASE64DICT",base64PathDict)
 
 						html = md2html(content.rawString, path, wikilinks = content.textlinks, base64PathDict = base64PathDict)
 						return html
@@ -507,6 +575,7 @@ class DbWrapper:
 				for f in r:	
 					l.append(f.fileid)
 					l.append(f.headers)
+					l.append(f.wordsCharsReadtime)
 
 				return l
 			except Exception as e:
@@ -568,6 +637,14 @@ class DbWrapper:
 			if file:
 				return file
 			return None
+
+	def getContent(self,fileid):
+		with self.db.bind_ctx(models.modellist):
+			content = models.Content.get_or_none(models.Content.fileid == fileid)
+			if content:
+				return content
+			return None
+
 
 	def initProject(self,db, jsondata, parentID = None):
 		persisted_Folder = self.modeldict["folder"].create(name=jsondata["name"],parentid=parentID)

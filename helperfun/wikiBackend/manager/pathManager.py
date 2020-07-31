@@ -1,4 +1,3 @@
-
 import base64
 import os
 from enum import Enum
@@ -13,12 +12,31 @@ def basename_w_ext_of_path(full_filepath_with_name):
 def extension_of_filepath(full_filepath_with_name):
 	return os.path.splitext(os.path.basename(full_filepath_with_name))[1]
 
+def listFolders(root_folder):
+	return [x[0] for x in os.walk(root_folder) if os.path.basename(x[0]) != "wikiconfig"]
 
 def folder_has_file(folder,full_path_of_file):
 	for folder, subs, files in os.walk(folder):
 			for filename in files:
 				if(filename == os.path.basename(full_path_of_file)):
 					return True
+
+def createFolder(foldername):
+	try:
+		os.makedirs(foldername)
+	except FileExistsError:
+		return responseGenerator.createExceptionResponse("folder exists")
+	except Exception as E:
+		return responseGenerator.createExceptionResponse("could not create folder: " + foldername + " | " + str(E) + " | " + type(E).__name__)
+
+def dump(strContent,wherePath):
+	try:
+		with open(wherePath, 'w+') as file:
+			file.write(strContent)
+		return responseGenerator.createSuccessResponse("dumped content")
+	except Exception as E:
+		return responseGenerator.createExceptionResponse("could not dump to file: " + wherePath + " | " + str(E) + " | " + type(E).__name__)
+
 
 def path_to_helperfun():
 	return os.path.dirname(__file__)
@@ -34,7 +52,6 @@ def resolve_relative_path(base_path,relative_navigation):
 	return resolved_abs_path
 
 def writeFiles(pathContentDict):
-	print("HERE",pathContentDict)
 	for path, content in pathContentDict.items():
 		try:
 			with io.open(path, 'w', encoding = 'utf-8') as file:
@@ -125,8 +142,8 @@ def validateDb(root_folder):
 		return False
 
 def touch(path):
-    with open(path, 'a'):
-        os.utime(path, None)
+	with open(path, 'a'):
+		os.utime(path, None)
 
 def checkupWikiconfig(root_folder):
 

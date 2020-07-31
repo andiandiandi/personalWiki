@@ -78,6 +78,11 @@ def on_moveFile(sid,srcPath,destPath):
 	response = wiki.dbWrapper.moveFile(srcPath,destPath,1234)
 	connections[sid].emit("files_changed",str(response),room=sid)
 
+def on_wordCount(sid,srcPath=None,all=False):
+	wiki = get(sid)
+	response = wiki.dbWrapper.wordCount(srcPath,all)
+	connections[sid].emit("word_count",str(response),room=sid)
+
 def on_clearDB(sid,jsonStr):
 	wiki = get(sid)
 	if wiki.dbStatus == sessionManager.DbStatus.notConnected:
