@@ -120,7 +120,7 @@ def generateFileHierarchyRecursive(jsondata):
 
 def generateFullFileHierarchy(path):
 	jsondata = pathManager.path_to_dict(path)
-	return generateFileHierarchyRecursive(jsondata["folders"])
+	return generateFileHierarchyRecursive([jsondata])
 
 @app.route('/<sid>')
 def fileHierarchy(sid):
@@ -175,22 +175,6 @@ def on_filesChanged(jsonStr):
 		socketio.emit("files_changed", str(result), room = request.sid)
 	else:
 		error("you have to initialize the project first", request.sid)
-
-@socketio.on('file_modified')
-def on_fileModified(jsonStr):
-	pass
-
-@socketio.on('file_created')
-def on_fileCreated(jsonStr):
-	pass
-
-@socketio.on('file_delete')
-def on_fileDeleted(jsonStr):
-	pass
-
-@socketio.on('file_moved')
-def on_fileMoved(jsonStr):
-	pass
 
 @socketio.on('sel_content')
 def on_selContent(jsonStr):

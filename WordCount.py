@@ -16,10 +16,8 @@ class WordCountCommand(sublime_plugin.TextCommand):
 		if sessionManager.hasProject(root_folder):
 			con = sessionManager.connection(root_folder)
 			if searchWholeNotebook:
-				print("ALL")
 				con.wordCount()
 			else:
-				print("single")
 				if self.view:
 					filepath = self.view.file_name()
 					if filepath:

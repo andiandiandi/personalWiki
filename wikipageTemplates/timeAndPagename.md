@@ -1,2 +1,0 @@
-### $pagename
-Angelegt am $creationdate

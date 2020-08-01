@@ -25,9 +25,6 @@ class PreviewMdImageCommand(sublime_plugin.TextCommand):
 
 	def run(self, edit):
 
-		if not wikiValidator.validate() == wikiValidator.ValidationResult.success:
-			return
-			
 		view = self.view
 
 		if not view.id() in phantom_dict:
