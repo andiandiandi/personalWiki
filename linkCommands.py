@@ -15,6 +15,28 @@ imp.reload(pathManager)
 def plugin_loaded():
 	pass
 
+
+class CreateImagelinkCommand(sublime_plugin.TextCommand):
+	def run(self, edit, files = None):
+		if files:
+			def on_done(index):
+				if index < 0 :
+					return
+				else:
+					file = files[index]
+					title = file["title"]
+					link = file["link"]
+					self.createImagelink(edit,title=title,link=link)
+			self.view.show_popup_menu([f["tooltip"] for f in files], on_done)
+		else:
+			self.createImagelink(edit)
+	def createImagelink(self,edit,title=None,link=None):
+		self.view.replace(edit,self.view.sel()[0],"![{0}]({1})".format(title if title else '',link if link else ''))
+		selectedRegion = self.view.sel()[0]
+		a = selectedRegion.a+2
+		self.view.sel().clear()
+		self.view.sel().add(sublime.Region(a,a))
+
 class ShowWikilinkOptionsCommand(sublime_plugin.TextCommand):
 	def run(self, edit, templates, folders, filename):
 		if type(templates) == list and type(folders) == list and self.view:
@@ -24,7 +46,11 @@ class ShowWikilinkOptionsCommand(sublime_plugin.TextCommand):
 				def on_doneTemplates(index):
 						if index < 0:
 							return
-						template = templates[index]
+						if index == 0:
+							template = None
+						else:
+							template = templates[index]
+						
 						def on_doneFolders(index):
 							if index < 0:
 								return
@@ -33,25 +59,25 @@ class ShowWikilinkOptionsCommand(sublime_plugin.TextCommand):
 									d = {"type":"create",
 										"template":template,
 										"folder":input,
-										"filename":filename}
+										"filename":filename,
+										"srcPath":self.view.file_name()}
 									con.createWikilink(d)
 								def on_cancelInput():
 									return
-								def onmode(a):
-									print(a)
-								sublime.active_window().show_input_panel("folder to create", os.path.dirname(self.view.file_name()), on_doneInput, onmode, on_cancelInput)
+								sublime.active_window().show_input_panel("folder to create", os.path.dirname(self.view.file_name()), on_doneInput, None, on_cancelInput)
 							else:
 								folder = folders[index]
 								d = {"type":"create",
 										"template":template,
 										"folder":folder,
-										"filename":filename}
+										"filename":filename,
+										"srcPath":self.view.file_name()}
 								con.createWikilink(d)
 
 						folders.insert(0,"+new folder")
 						self.view.show_popup_menu(folders, on_doneFolders)
 
-
+				templates.insert(0,"-no Template")
 				self.view.show_popup_menu(templates, on_doneTemplates)
 
 class CreateWikilinkCommand(sublime_plugin.TextCommand):
@@ -90,6 +116,10 @@ class ToggleWikilinkCommand(sublime_plugin.TextCommand):
 					d = {"type":"toggle",
 						"word":word,
 						"srcPath":view.file_name()}
+					con.createWikilink(d)
+				else:
+					d = {"type":"imagelink",
+					   "srcPath":view.file_name()}
 					con.createWikilink(d)
 
 	def selectWord(self,view):

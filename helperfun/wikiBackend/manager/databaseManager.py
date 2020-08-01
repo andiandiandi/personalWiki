@@ -18,6 +18,7 @@ from . import sessionManager
 from . import pathManager
 from .pathManager import Filetype
 from . import wordCount
+from . import templateManager
 
 urlRegex = re.compile(
 		r'^(?:http|ftp)s?://' # http:// or https://
@@ -197,12 +198,13 @@ class DbWrapper:
 			if not l:
 				d["type"] = "create"
 				d["filename"] = filename
-				d["templates"] = ["template1","template2"]
+				templatePathDict = templateManager.templatePathDict()
+				d["templates"] = list(templatePathDict.keys()) if templatePathDict else []
 				d["folders"] = pathManager.listFolders(self.wiki.root_folder)
 
-			return d
+			return responseGenerator.createSuccessResponse(d)
 
-	def createWikilink(self,template,folder,filename):
+	def createWikilink(self,template,folder,filename,srcPath):
 		if folder.startswith(self.wiki.root_folder):
 			if not pathManager.exists(folder):
 				response = pathManager.createFolder(folder)
@@ -210,14 +212,39 @@ class DbWrapper:
 					return response
 
 			realFilename = os.path.join(folder,filename + ".md")
-			response = pathManager.dump("asdf",realFilename)
+			response = None
+			if template:
+				templateContent = templateManager.getContent(template,filename)
+				response = pathManager.dump(templateContent if templateContent else "",realFilename)
+			else:
+				response = pathManager.dump("",realFilename)
 			if response["status"] == "exception":
 				return response
 
-			return responseGenerator.createSuccessResponse("created Wikilink: " + realFilename + ", " + "with template: " + template)
+			d = {}
+			d["type"] = "directlink"
+			d["files"] = [{"title":filename,"link":os.path.relpath(realFilename,os.path.dirname(srcPath)),"tooltip":realFilename}]
+
+			return responseGenerator.createSuccessResponse(d)
 
 		else:
 			return responseGenerator.createExceptionResponse("could not create Wikilink: " + filename + " | " + "folder not in notebook")
+
+	def generateImagelinkData(self,srcPath):
+		with self.db.bind_ctx(models.modellist):
+			imageQuery = models.File.select(models.File.fullpath).join(models.Image).where(models.File.id==models.Image.fileid)
+			l = []
+			for file in imageQuery:
+				l.append({"title":"","link":os.path.relpath(file.fullpath,os.path.dirname(srcPath)),"tooltip":file.fullpath})
+
+			d = {}
+			if l:
+				d["type"] = "directimagelink"
+				d["files"] = l		
+			if not l:
+				d["type"] = "createimagelink"
+
+			return responseGenerator.createSuccessResponse(d)
 
 	def checkIndex(self):
 		json_project_structure = pathManager.path_to_dict(self.wiki.root_folder)

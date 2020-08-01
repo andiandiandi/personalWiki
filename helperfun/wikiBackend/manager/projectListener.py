@@ -14,6 +14,7 @@ from .libs.watchdog.events import FileSystemEventHandler
 from .libs.watchdog.observers import Observer
 
 from . import sessionManager
+from . import pathManager
 
 
 class FileEventHandler(PatternMatchingEventHandler):
@@ -70,7 +71,7 @@ class FileListener:
 		self.wiki = wiki
 		self.shouldRun = False
 		self.paused = False
-		self.event_handler = FileEventHandler(patterns=['*.md'],ignore_directories=True)
+		self.event_handler = FileEventHandler(patterns=['*'+ e for e in pathManager.supportedExtensions()],ignore_directories=True)
 		self.observer = Observer()
 
 	def start(self):

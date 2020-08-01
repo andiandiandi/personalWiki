@@ -79,6 +79,9 @@ def extensionNoDot(path):
 def path_to_plugin_folder():
 	return resolve_relative_path(path_to_helperfun(),"..")
 
+def supportedExtensions():
+	return [".md",".jpg",".jpeg",".png",".gif"]
+
 class Filetype(Enum):
 	wikipage = 0
 	image = 1
@@ -92,7 +95,7 @@ def filetype(extension):
 	else:
 		return None
 
-def createFile(full_path):
+def generateFileData(full_path):
 	broken = False
 	d = {}
 	d["path"] = full_path
@@ -130,7 +133,7 @@ def path_to_dict(path):
 			for folder in directFolders:
 				if folder:
 					d['folders'].append(folder)
-			d['files'] = [createFile(os.path.join(path,f)) for f in os.listdir(path) if isFile(os.path.join(path, f),extensionConstraints=[".md",".png",".jpg",".gif"])]
+			d['files'] = [generateFileData(os.path.join(path,f)) for f in os.listdir(path) if isFile(os.path.join(path, f),extensionConstraints=[".md",".png",".jpg",".gif"])]
 	return d
 
 

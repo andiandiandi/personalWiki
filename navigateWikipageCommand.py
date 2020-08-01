@@ -3,12 +3,10 @@ import sublime_plugin
 import imp
 from .helperfun import pathManager
 from .helperfun import wikiSettingsManager
-from .helperfun import wikiValidator
 
 def plugin_loaded():
 	imp.reload(pathManager)
 	imp.reload(wikiSettingsManager)
-	imp.reload(wikiValidator)
 
 	global Navigator
 	Navigator = Navigator()
@@ -49,9 +47,6 @@ class Navigator():
 
 class NavigateWikipageCommand(sublime_plugin.TextCommand):
 	def run(self, edit, forward = True, home=False):
-
-		if not wikiValidator.validate() == wikiValidator.ValidationResult.success:
-			return
 
 		file_path = Navigator.ret_next_filepath(forward = forward, home = home)
 		if file_path:

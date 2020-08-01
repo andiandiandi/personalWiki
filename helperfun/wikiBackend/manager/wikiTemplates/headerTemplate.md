@@ -1,0 +1,5 @@
+# $wikipage  
+$date
+$datetime
+$time
+

@@ -133,6 +133,12 @@ class Connection:
 				folders = d["folders"]
 				filename = d["filename"]
 				localApi.runWindowCommand(self.root_folder,"show_wikilink_options",args={"templates":templates,"folders":folders,"filename":filename})
+			elif d["type"] == "directimagelink":
+				files = d["files"]
+				localApi.runWindowCommand(self.root_folder,"create_imagelink",args={"files":files})
+			elif d["type"] == "createimagelink":
+				localApi.runWindowCommand(self.root_folder,"create_imagelink")
+
 		except:
 			return
 

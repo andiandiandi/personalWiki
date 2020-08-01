@@ -223,16 +223,21 @@ def on_createWikilink(jsonstr):
 				word = d["word"]
 				srcPath = d["srcPath"]
 				result = wiki.dbWrapper.generateWikilinkData(word,srcPath)
-				socketio.emit("create_wikilink", json.dumps(result), room = request.sid)
+				socketio.emit("create_wikilink", json.dumps(result["response"]), room = request.sid)
+			elif d["type"] == "imagelink":
+				srcPath = d["srcPath"]
+				result = wiki.dbWrapper.generateImagelinkData(srcPath)
+				socketio.emit("create_wikilink", json.dumps(result["response"]), room = request.sid)
 			elif d["type"] == "create":
 				filename = d["filename"]
 				template = d["template"]
 				folder = d["folder"]
-				result = wiki.dbWrapper.createWikilink(template,folder,filename)
+				srcPath = d["srcPath"]
+				result = wiki.dbWrapper.createWikilink(template,folder,filename,srcPath)
 				if result["status"] == "exception":
 					error(result["response"], request.sid)
 				else:
-					socketio.emit("create_wikilink", json.dumps(result), room = request.sid)
+					socketio.emit("create_wikilink", json.dumps(result["response"]), room = request.sid)
 			else:
 				error("corrupted data string", request.sid)
 

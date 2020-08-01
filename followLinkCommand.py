@@ -56,6 +56,8 @@ URL_PATTERN = re.compile(
 						re.UNICODE | re.IGNORECASE
 					   )
 
+INSIDE_SQUAREBRACKETS = re.compile(r"\[([A-Za-z0-9_]+)\]")
+
 class FollowLinkCommand(sublime_plugin.TextCommand):
 	def run(self, edit):
 
@@ -63,20 +65,20 @@ class FollowLinkCommand(sublime_plugin.TextCommand):
 		self.edit = edit
 
 		link_regions = view.find_by_selector(
-				'markup.underline.link.markdown')
+				'meta.link.inline.markdown')
 
 		image_regions = view.find_by_selector(
-				'markup.underline.link.image.markdown')
+				'meta.image.inline.markdown')
 
 		self.full_path_of_link = None
 
-		for region in link_regions+image_regions:
+		for region in link_regions + image_regions:
 				if region.a <= view.sel()[0].a <= region.b:
-					self.full_path_of_link = view.substr(region)
+					s = view.substr(region)
+					#find inside paranthesis
+					self.full_path_of_link = s[s.find("(")+1:s.find(")")]
 
 		if self.full_path_of_link:
-			#---insert broken link test here---
-
 			#path is uri
 			if validate_url(self.full_path_of_link):
 				webbrowser.open(self.full_path_of_link)
