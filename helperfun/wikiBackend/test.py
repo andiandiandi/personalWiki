@@ -46,10 +46,8 @@ filename = "C:\\Users\\Andre\\Desktop\\onefilewiki\\subfolder\\ref.md"
 filename2 = "C:\\Users\\Andre\\Desktop\\onefilewiki\\subfolder\\renamedpage.md"
 
 socketFakeServer.on_initializeProject(123,onefilewiki,socket)
-f2 = socketFakeServer.on_selFiles(123,"")
-print(f2)
-f3 = socketFakeServer.on_wordCount(123,all=True)
-
+socketFakeServer.on_clearDB(123,onefilewiki)
+socketFakeServer.on_initializeProject(123,onefilewiki,socket)
 socketFakeServer.on_disconnect(123)
 
 """

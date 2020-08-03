@@ -523,6 +523,7 @@ class DbWrapper:
 		with self.db.bind_ctx(models.modellist):
 			try:
 				tree = parseContentMistletoe(content)
+				print(tree)
 				#textdict = json.dumps(parseText(tree))
 				imagelinks = json.dumps(list_of_imagelinks(json.loads(tree)))
 				textlinks = json.dumps(list_of_textlinks(json.loads(tree)))
@@ -602,8 +603,6 @@ class DbWrapper:
 				for f in r:	
 					l.append(f.fileid)
 					l.append(f.headers)
-					l.append(f.wordsCharsReadtime)
-
 				return l
 			except Exception as e:
 				return str(e)
