@@ -141,31 +141,29 @@ def createWordHash(textDict):
 		for word in content.split(" "):
 			if word:
 				if word[:1] not in d:
-					d[word[:1]] = []
-					d[word[:1]].append((word,set([entry["start"]])))
+					d.setdefault(word[:1],[]).append((word,list(set([entry["start"]]))))
 				else:
 					#(word,[start,..])
 					found = False
 					for e in d[word[:1]]:
 						if e[0] == word:
-							e[1].add(entry["start"])
+							e[1].append(entry["start"])
 							found = True
 							break
 					if not found:
-						d[word[:1]].append((word,set([entry["start"]])))
+						d[word[:1]].append((word,list(set([entry["start"]]))))
 
 	return d
 
 k = textDict(d)
 print(k)
-print(k)
 print("____")
 
 rr = createWordHash(k)
 print(rr)
-
+print("***********")
 #das haus
-def search(phrase, wordHash, linespan=0):
+def search(phrase, wordHash, linespan=0,filepath = None):
 	def validLines(tupl):
 		for t in tupl:
 			found = True
@@ -199,7 +197,7 @@ def search(phrase, wordHash, linespan=0):
 			return list(result)
 		else:
 			entry = l[0]
-			return [list([i]) for i in entry]
+			return [tuple([i]) for i in entry]
 
 	def findWord(searchword,wordlist):
 		bestratio = -1
@@ -216,7 +214,7 @@ def search(phrase, wordHash, linespan=0):
 
 		return bestmatch
 
-	finalResult = []
+	finalResult = None
 	#["hallo ich","auto meer"]
 	print("phrase:",phrase)
 	combinations = []
@@ -247,12 +245,21 @@ def search(phrase, wordHash, linespan=0):
 		for i in result:
 			a = Counter(i).most_common(1)[0]
 			print("A",a)
-			l.append({"lines":i,"rating":round(i[0]/(sum(i)/len(i)),2)})
+			fullphrase = "PREVIEW NOT AVAILABLE"
+			try:
+				fullphrase = "...".join([wordHash["lines"][line] for line in i])
+			except:
+				pass
+			r = {"lines":i,"rating":round(i[0]/(sum(i)/len(i)),2),"fullphrase":fullphrase}
+			if filepath:
+				r["filepath"] = filepath
+			l.append(r)
 		print("result",result)
-		sortedFindings = sorted(l, key=lambda k: k['rating'], reverse=True) 
-		finalResult.append({"phrase":phrase,"findings":sortedFindings})
+		if l:
+			sortedFindings = sorted(l, key=lambda k: k['rating'], reverse=True) 
+			finalResult = sortedFindings
 
 	return finalResult
 
-s = search("du nict glaubt", rr , linespan = 0)
+s = search("das haus nicht", rr,linespan=10,filepath="newfile.md")
 print(s)

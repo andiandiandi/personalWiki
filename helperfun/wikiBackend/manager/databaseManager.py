@@ -18,7 +18,14 @@ from . import sessionManager
 from . import pathManager
 from .pathManager import Filetype
 from . import wordCount
+
+
 from . import templateManager
+
+from fuzzywuzzy import fuzz
+
+import itertools
+from collections import Counter
 
 urlRegex = re.compile(
 		r'^(?:http|ftp)s?://' # http:// or https://
@@ -76,6 +83,44 @@ def list_of_footnotes(md_ast,footnotes = False):
 
 	return objs
 
+
+def textDict(md_ast):
+	l = []
+	if "children" in md_ast:
+		for entry in md_ast["children"]:
+			l += textDict(entry)
+	elif "content" in md_ast:
+			content = re.sub('\W+',' ', md_ast["content"]).strip()
+			if content:
+				l.append({"start":md_ast["span"]["start"],"read":md_ast["span"]["read"],"content": content})
+	return l
+
+
+
+def createWordHash(textDict):
+	d = {}
+	d["lines"] = {}
+	for entry in textDict:
+		content = entry["content"]
+		d["lines"][entry["start"]] = content
+		for word in content.split(" "):
+			if word:
+				if word[:1] not in d:
+					d.setdefault(word[:1],[]).append((word,list(set([entry["start"]]))))
+				else:
+					#(word,[start,..])
+					found = False
+					for e in d[word[:1]]:
+						if e[0] == word:
+							e[1].append(entry["start"])
+							found = True
+							break
+					if not found:
+						d[word[:1]].append((word,list(set([entry["start"]]))))
+
+	return d
+
+
 def parseText(md_ast, d = None, p = 0):
 	if d is None:
 		d = {}
@@ -92,6 +137,105 @@ def parseText(md_ast, d = None, p = 0):
 						d[s[0]] = []
 						d[s[0]].append((s,p))
 	return d
+
+def search(phrase, wordHash, linespan=0,filepath = None):
+	def validLines(tupl):
+		for t in tupl:
+			found = True
+			for x in tupl:
+				if t == x:
+					continue
+				else:
+					if not abs(t-x) <= linespan:
+						found = False
+						break;
+			if found:
+				print("found:",tupl)
+				return True
+
+		print("not found:",tupl)
+		return False
+
+	def lines(l):
+
+		result = set()
+		if len(l) > 1:
+			for e in itertools.product(*l):
+				validTuple = validLines(e)
+				if validTuple:
+					sortedUniqueLines = tuple(sorted(set(e)))
+					print("sortedUniqueLines",sortedUniqueLines)
+					if len(sortedUniqueLines) > 2:
+						sortedUniqueLines = (sortedUniqueLines[0],sortedUniqueLines[-1])
+					result.add(sortedUniqueLines)
+				print("_______")
+			return list(result)
+		else:
+			entry = l[0]
+			return [tuple([i]) for i in entry]
+
+	def findWord(searchword,wordlist):
+		bestratio = -1
+		bestmatch = None
+		for wordLineTuple in wordlist:
+			print("wordLineTuple:",wordLineTuple)
+			#word
+			w = wordLineTuple[0]
+			#here compare
+			ratio = fuzz.ratio(w.lower(),searchword.lower())
+			print("ratio",ratio)
+			if ratio >= 85 and ratio > bestratio:
+				bestmatch = wordLineTuple[1]
+
+		return bestmatch
+
+	finalResult = None
+	#["hallo ich","auto meer"]
+	print("phrase:",phrase)
+	combinations = []
+	#["hallo ich"]
+	abort = False
+	for word in [w.replace(" ","") for w in phrase.split(" ")]:
+		#[(word,[start])]
+		if not word[:1] in wordHash:
+			return None
+		wordlist = wordHash[word[:1]]
+		#(word,[start])
+		print("wordlist:",wordlist)
+		listOfLines = findWord(word,wordlist)
+		print("lifoflines",listOfLines)
+		if listOfLines:			
+			combinations.append(listOfLines)
+		else:
+			abort = True
+			break;
+
+	if abort:
+		return None
+	else:
+		print("combinations",combinations)
+		result = lines(combinations)
+		print("result",result)
+		l = []
+		for i in result:
+			a = Counter(i).most_common(1)[0]
+			print("A",a)
+			fullphrase = "PREVIEW NOT AVAILABLE"
+			try:
+				fullphrase = "...".join([wordHash["lines"][str(line)] for line in i])
+			except:
+				pass
+			r = {"lines":i,"rating":round(i[0]/(sum(i)/len(i)),2),"fullphrase":fullphrase}
+			if filepath:
+				r["filepath"] = filepath
+			l.append(r)
+		print("result",result)
+		if l:
+			sortedFindings = sorted(l, key=lambda k: k['rating'], reverse=True) 
+			finalResult = sortedFindings
+
+	return finalResult
+
 
 def parseContentMistletoe(content):
 	tree = mistletoe.markdown(content, ASTRenderer)
@@ -467,14 +611,19 @@ class DbWrapper:
 		with self.db.bind_ctx(models.modellist):
 			try:
 				tree = parseContentMistletoe(content)
+				dictTree = json.loads(tree)
 				#textdict = json.dumps(parseText(tree))
-				imagelinks = json.dumps(list_of_imagelinks(json.loads(tree)))
-				textlinks = json.dumps(list_of_textlinks(json.loads(tree)))
+				imagelinks = json.dumps(list_of_imagelinks(dictTree))
+				textlinks = json.dumps(list_of_textlinks(dictTree))
 				textdict = ""
-				headers = json.dumps(list_of_headers(json.loads(tree)))
-				footnotes = json.dumps(list_of_footnotes(json.loads(tree)))
+				headers = json.dumps(list_of_headers(dictTree))
+				footnotes = json.dumps(list_of_footnotes(dictTree))
 				wordsCharsReadtime = json.dumps(wordCount.countWordsCharReadtime(content))
-				contentupdateQuery = models.Content.update(textdict = textdict, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes, rawString = content, wordsCharsReadtime=wordsCharsReadtime).where(models.Content.fileid == fileid)
+				w = createWordHash(textDict(dictTree))
+				print("w",w)
+				wordhash = json.dumps(w)
+				print("update wordhash",wordhash)
+				contentupdateQuery = models.Content.update(wordhash=wordhash, textdict = textdict, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes, rawString = content, wordsCharsReadtime=wordsCharsReadtime).where(models.Content.fileid == fileid)
 				contentupdateQuery.execute()
 
 				return responseGenerator.createSuccessResponse("updated wikipage with fileid: " + str(fileid))
@@ -523,21 +672,62 @@ class DbWrapper:
 		with self.db.bind_ctx(models.modellist):
 			try:
 				tree = parseContentMistletoe(content)
-				print(tree)
+				dictTree = json.loads(tree)
 				#textdict = json.dumps(parseText(tree))
-				imagelinks = json.dumps(list_of_imagelinks(json.loads(tree)))
-				textlinks = json.dumps(list_of_textlinks(json.loads(tree)))
+				imagelinks = json.dumps(list_of_imagelinks(dictTree))
+				textlinks = json.dumps(list_of_textlinks(dictTree))
 				textdict = ""
-				headers = json.dumps(list_of_headers(json.loads(tree)))
-				footnotes = json.dumps(list_of_footnotes(json.loads(tree)))
+				headers = json.dumps(list_of_headers(dictTree))
+				footnotes = json.dumps(list_of_footnotes(dictTree))
 				wordsCharsReadtime = json.dumps(wordCount.countWordsCharReadtime(content))
-				c = self.modeldict["content"].create(textdict = textdict, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes, rawString = content,wordsCharsReadtime=wordsCharsReadtime,fileid=fileid)
+				w = createWordHash(textDict(dictTree))
+				print("w",w)
+				wordhash = json.dumps(w)
+				print("insert wordhash",wordhash)
+				c = self.modeldict["content"].create(wordhash=wordhash,textdict = textdict, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes, rawString = content,wordsCharsReadtime=wordsCharsReadtime,fileid=fileid)
 
 				return responseGenerator.createSuccessResponse("inserted wikipage:" + str(fileid))
 
 			except Exception as E:
 				return responseGenerator.createExceptionResponse("exception while inserting wikipage: " + str(E))
 				
+
+	def searchFulltext(self,phrase,linespan=0,filepath=None):
+		if filepath:
+			file = self.getFile(filepath)
+			if file:
+				content = self.getContent(file.id)
+				if content:
+					wordhash = content.wordhash
+					try:
+						wordhashD = json.loads(wordhash)
+						findingsD = search(phrase,wordhashD,linespan=linespan,filepath=filepath)
+						
+						return responseGenerator.createSuccessResponse(findingsD)
+					except Exception as E:
+						return responseGenerator.createExceptionResponse("fulltext-search for file: " + filepath + " failed: " + str(type(E).__name__))
+				else:
+					return responseGenerator.createExceptionResponse("fulltext-search for file: " + filepath + " failed: file-content not found in db")
+
+			else:
+				return responseGenerator.createExceptionResponse("fulltext-search for file: " + filepath + " failed: file not found in db")
+
+		else:
+			with self.db.bind_ctx(models.modellist):
+				query = models.File.select(models.File.fullpath,models.Content.wordhash).join(models.Content)
+				result = []
+				for row in query:
+					wordhash = row.content.wordhash
+					try:
+						wordhashD = json.loads(wordhash)
+						findingsD = search(phrase,wordhashD,linespan=linespan,filepath=row.fullpath)
+						if findingsD:
+							result += findingsD
+					except Exception as E:
+						return responseGenerator.createExceptionResponse("fulltext-search across whole notebook failed: " + " | " + str(E) + " | " + str(type(E).__name__))
+
+				result = sorted(result, key=lambda k: k['rating'], reverse=True)
+				return responseGenerator.createSuccessResponse(result)
 
 	def clearDatabase(self):
 		try:

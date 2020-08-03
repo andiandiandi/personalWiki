@@ -176,6 +176,30 @@ def on_filesChanged(jsonStr):
 	else:
 		error("you have to initialize the project first", request.sid)
 
+
+@socketio.on('search_fulltext')
+def on_searchFulltext(jsonstr):
+	#phrase,linespan=0,filepath=None
+	wiki = get(request.sid)
+	if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
+		try:
+			d = json.loads(jsonstr)
+			print("D",d)
+			result = wiki.dbWrapper.searchFulltext(**d)
+			print("result",result)
+			if result["status"] == "success":
+				socketio.emit("search_fulltext", json.dumps(result["response"]), room = request.sid)
+			elif result["status"] == "exception":
+				error(result["response"],request.sid)
+			else:
+				error("corrupted result")
+		except Exception as E:
+			print("EX",str(E))
+			error(str(type(E).__name__ + ":" + str(E)))
+
+	else:
+		error("you have to initialize the database first", request.sid)
+
 @socketio.on('sel_content')
 def on_selContent(jsonStr):
 	wiki = get(request.sid)

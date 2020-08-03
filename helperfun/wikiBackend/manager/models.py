@@ -50,6 +50,7 @@ class Content(Model):
 	headers = CharField()
 	footnotes = CharField()
 	wordsCharsReadtime = CharField()
+	wordhash = CharField()
 	fileid = ForeignKeyField(File, on_delete = 'CASCADE')
 	rawString = CharField()
 
