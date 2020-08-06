@@ -59,6 +59,18 @@ def on_initializeProject(root_folder):
 	else:
 		socketio.emit("project_initialized","uninteded behaviour while init project", room = request.sid)
 
+@socketio.on('search_query')
+def on_searchQuery(jsonStr):
+	wiki = get(request.sid)
+	if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
+		response = wiki.dbWrapper.runRealSearchQuery(jsonStr)
+		if response["status"] == "exception":
+			error(response["response"],request.sid)
+		else:
+			socketio.emit("search_query", json.dumps(response["response"]), room = request.sid)
+	else:
+		error("you have to initialize the database first", request.sid)
+
 
 @socketio.on('clear_db')
 def on_clearDB(jsonStr):
@@ -76,14 +88,6 @@ def on_clearDB(jsonStr):
 		socketio.emit("clear_db", json.dumps(result), room = request.sid)
 	else:
 		error("initialize project first", request.sid)
-@socketio.on('search_query')
-def on_searchQuery(jsonStr):
-	wiki = get(request.sid)
-	if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
-		result = wiki.dbWrapper.runSearchQuery(json.loads(jsonStr))
-		socketio.emit("search_query", json.dumps(result), room = request.sid)
-	else:
-		error("you have to initialize the project first", request.sid)
 
 def createContainer():
 	return '<div class="foldercontainer">'
@@ -175,30 +179,6 @@ def on_filesChanged(jsonStr):
 		socketio.emit("files_changed", str(result), room = request.sid)
 	else:
 		error("you have to initialize the project first", request.sid)
-
-
-@socketio.on('search_fulltext')
-def on_searchFulltext(jsonstr):
-	#phrase,linespan=0,filepath=None
-	wiki = get(request.sid)
-	if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
-		try:
-			d = json.loads(jsonstr)
-			print("D",d)
-			result = wiki.dbWrapper.searchFulltext(**d)
-			print("result",result)
-			if result["status"] == "success":
-				socketio.emit("search_fulltext", json.dumps(result["response"]), room = request.sid)
-			elif result["status"] == "exception":
-				error(result["response"],request.sid)
-			else:
-				error("corrupted result")
-		except Exception as E:
-			print("EX",str(E))
-			error(str(type(E).__name__ + ":" + str(E)))
-
-	else:
-		error("you have to initialize the database first", request.sid)
 
 @socketio.on('sel_content')
 def on_selContent(jsonStr):

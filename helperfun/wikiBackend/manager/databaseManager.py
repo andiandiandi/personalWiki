@@ -19,6 +19,7 @@ from . import pathManager
 from .pathManager import Filetype
 from . import wordCount
 
+from . import searchQueryManager
 
 from . import templateManager
 
@@ -146,14 +147,12 @@ def search(phrase, wordHash, linespan=0,filepath = None):
 				if t == x:
 					continue
 				else:
-					if not abs(t-x) <= linespan:
+					if not abs(t-x) <= int(linespan):
 						found = False
 						break;
 			if found:
-				print("found:",tupl)
 				return True
 
-		print("not found:",tupl)
 		return False
 
 	def lines(l):
@@ -164,11 +163,9 @@ def search(phrase, wordHash, linespan=0,filepath = None):
 				validTuple = validLines(e)
 				if validTuple:
 					sortedUniqueLines = tuple(sorted(set(e)))
-					print("sortedUniqueLines",sortedUniqueLines)
 					if len(sortedUniqueLines) > 2:
 						sortedUniqueLines = (sortedUniqueLines[0],sortedUniqueLines[-1])
 					result.add(sortedUniqueLines)
-				print("_______")
 			return list(result)
 		else:
 			entry = l[0]
@@ -178,12 +175,10 @@ def search(phrase, wordHash, linespan=0,filepath = None):
 		bestratio = -1
 		bestmatch = None
 		for wordLineTuple in wordlist:
-			print("wordLineTuple:",wordLineTuple)
 			#word
 			w = wordLineTuple[0]
 			#here compare
 			ratio = fuzz.ratio(w.lower(),searchword.lower())
-			print("ratio",ratio)
 			if ratio >= 85 and ratio > bestratio:
 				bestmatch = wordLineTuple[1]
 
@@ -191,19 +186,18 @@ def search(phrase, wordHash, linespan=0,filepath = None):
 
 	finalResult = None
 	#["hallo ich","auto meer"]
-	print("phrase:",phrase)
 	combinations = []
 	#["hallo ich"]
 	abort = False
-	for word in [w.replace(" ","") for w in phrase.split(" ")]:
+	if not type(phrase) == list:
+		phrase = [w.replace(" ","") for w in phrase.split(" ")]
+	for word in phrase:
 		#[(word,[start])]
 		if not word[:1] in wordHash:
 			return None
 		wordlist = wordHash[word[:1]]
 		#(word,[start])
-		print("wordlist:",wordlist)
 		listOfLines = findWord(word,wordlist)
-		print("lifoflines",listOfLines)
 		if listOfLines:			
 			combinations.append(listOfLines)
 		else:
@@ -213,13 +207,10 @@ def search(phrase, wordHash, linespan=0,filepath = None):
 	if abort:
 		return None
 	else:
-		print("combinations",combinations)
 		result = lines(combinations)
-		print("result",result)
 		l = []
 		for i in result:
 			a = Counter(i).most_common(1)[0]
-			print("A",a)
 			fullphrase = "PREVIEW NOT AVAILABLE"
 			try:
 				fullphrase = "...".join([wordHash["lines"][str(line)] for line in i])
@@ -229,7 +220,6 @@ def search(phrase, wordHash, linespan=0,filepath = None):
 			if filepath:
 				r["filepath"] = filepath
 			l.append(r)
-		print("result",result)
 		if l:
 			sortedFindings = sorted(l, key=lambda k: k['rating'], reverse=True) 
 			finalResult = sortedFindings
@@ -291,6 +281,22 @@ class DbWrapper:
 
 	def hasConnection(self):
 		return bool(self.db)
+
+	def runRealSearchQuery(self,queryString):
+		response = searchQueryManager.parseQuery(queryString)
+		if response["status"] == "exception":
+			return response
+		elif response["status"] == "success":
+			parsedQueryD = json.loads(response["response"])
+
+			if parsedQueryD["type"] == "tagsearch":
+				jsondataTagQuery = searchQueryManager.jsondataTagQuery(parsedQueryD["phrase"],parsedQueryD["args"])
+				return self.runSearchQuery(jsondataTagQuery)
+			elif parsedQueryD["type"] == "fulltextsearch":
+				jsondataFulltextQuery = searchQueryManager.jsondataFulltextQuery(parsedQueryD["phrase"],parsedQueryD["args"])
+				return self.searchFulltext(jsondataFulltextQuery)
+		else:
+			return response
 
 	def wordCount(self, path = None):
 		try:
@@ -691,43 +697,35 @@ class DbWrapper:
 			except Exception as E:
 				return responseGenerator.createExceptionResponse("exception while inserting wikipage: " + str(E))
 				
-
-	def searchFulltext(self,phrase,linespan=0,filepath=None):
-		if filepath:
-			file = self.getFile(filepath)
-			if file:
-				content = self.getContent(file.id)
-				if content:
-					wordhash = content.wordhash
-					try:
-						wordhashD = json.loads(wordhash)
-						findingsD = search(phrase,wordhashD,linespan=linespan,filepath=filepath)
-						
-						return responseGenerator.createSuccessResponse(findingsD)
-					except Exception as E:
-						return responseGenerator.createExceptionResponse("fulltext-search for file: " + filepath + " failed: " + str(type(E).__name__))
-				else:
-					return responseGenerator.createExceptionResponse("fulltext-search for file: " + filepath + " failed: file-content not found in db")
-
+	def searchFulltext(self,jsondataFulltextQuery):
+	#def searchFulltext(self,phrase,linespan=0,filepath=None):
+		with self.db.bind_ctx(models.modellist):
+			files = jsondataFulltextQuery["files"]
+			files_exclude = jsondataFulltextQuery["files_exclude"]
+			span = jsondataFulltextQuery["span"]
+			phrase = jsondataFulltextQuery["phrase"]
+			print(jsondataFulltextQuery)
+			query = None
+			if files_exclude:
+				query = models.File.select(models.File.fullpath,models.Content.wordhash).join(models.Content).where(~models.File.fileIn(files))
 			else:
-				return responseGenerator.createExceptionResponse("fulltext-search for file: " + filepath + " failed: file not found in db")
+				if files:
+					query = models.File.select(models.File.fullpath,models.Content.wordhash).join(models.Content).where(models.File.fileIn(files))
+				else:
+					query = models.File.select(models.File.fullpath,models.Content.wordhash).join(models.Content)
+			result = []
+			for row in query:
+				wordhash = row.content.wordhash
+				try:
+					wordhashD = json.loads(wordhash)
+					findingsD = search(phrase,wordhashD,linespan=span,filepath=row.fullpath)
+					if findingsD:
+						result += findingsD
+				except Exception as E:
+					return responseGenerator.createExceptionResponse("fulltext-search across whole notebook failed: " + " | " + str(E) + " | " + str(type(E).__name__))
 
-		else:
-			with self.db.bind_ctx(models.modellist):
-				query = models.File.select(models.File.fullpath,models.Content.wordhash).join(models.Content)
-				result = []
-				for row in query:
-					wordhash = row.content.wordhash
-					try:
-						wordhashD = json.loads(wordhash)
-						findingsD = search(phrase,wordhashD,linespan=linespan,filepath=row.fullpath)
-						if findingsD:
-							result += findingsD
-					except Exception as E:
-						return responseGenerator.createExceptionResponse("fulltext-search across whole notebook failed: " + " | " + str(E) + " | " + str(type(E).__name__))
-
-				result = sorted(result, key=lambda k: k['rating'], reverse=True)
-				return responseGenerator.createSuccessResponse(result)
+			result = sorted(result, key=lambda k: k['rating'], reverse=True)
+			return responseGenerator.createSuccessResponse(result)
 
 	def clearDatabase(self):
 		try:
@@ -936,12 +934,13 @@ class DbWrapper:
 				return True
 
 	def runSearchQuery(self,jsondata):
-		print(jsondata)
-		print()
 		if "files" in jsondata and "element" in jsondata and "values" in jsondata:
 			files = jsondata["files"]
 			element = jsondata["element"]
 			values = jsondata["values"]
-			return searchDataParser.elementHandlers[element["value"]](files,element,values,self.db)
+			try:
+				return responseGenerator.createSuccessResponse(searchDataParser.elementHandlers[element["value"]](files,element,values,self.db))
+			except Exception as E:
+				return responseGenerator.createExceptionResponse("could not run tag-searchQuery: " + str(E) + " | " + type(E).__name__)
 		else:
-			raise Exception('"files" or "values" key not existent')
+			return responseGenerator.createExceptionResponse("could not run tag-searchQuery: " + '"files" or "values" key not existent')

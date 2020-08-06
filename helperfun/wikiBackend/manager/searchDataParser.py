@@ -148,7 +148,16 @@ def parseQuery(query,rootelement,rootvalues):
 										break
 				if fulfilled:
 					retobj = createFile(file.name,file.extension,file.relpath)
-					retobj["span"].append(element["span"])
+					span = element["span"]
+					if span:
+						lines = []
+						start = span["start"]
+						lines.append(start)
+						read = span["read"]
+						if read > 1:
+							read = start + read
+							lines.append(read)
+						retobj["lines"] = lines
 					toret.append(retobj)
 										
 	if toret:
@@ -192,10 +201,18 @@ def fetch_without_element(elementname,filesv,filesn,db):
 			return None
 
 def createFile(name,extension,relpath):
-	return {"file":{"name":name,"extension":extension,"path":relpath},"span":[]}
+	return {"filepath":os.path.join(relpath,name+extension),"lines":[]}
 
 def createRet(name,extension,relpath,span):
-	return {"file":{"name":name,"extension":extension,"path":relpath},"span":span}
+	lines = []
+	if span:
+		start = span["start"]
+		lines.append(start)
+		read = span["read"]
+		if read > 1:
+			read = start + read
+			lines.append(read)
+	return {"filepath":os.path.join(relpath,name+extension),"lines":lines}
 
 def extv(obj):
 	if "values" in obj:

@@ -109,6 +109,15 @@ def on_clearDB(sid,jsonStr):
 	result = wiki.dbWrapper.clearDatabase()
 	connections[sid].emit("clear_db", json.dumps(result), room = sid)
 
+def on_realSearchQuery(sid,jsonStr):
+	wiki = get(sid)
+	if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
+		result = wiki.dbWrapper.runRealSearchQuery(jsonStr)
+		connections[sid].emit("real_search_query", json.dumps(result), room = sid)
+	else:
+		error("you have to initialize the database first", sid)
+
+
 def on_searchQuery(sid,jsonStr):
 	wiki = get(sid)
 	if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:

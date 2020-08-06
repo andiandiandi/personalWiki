@@ -11,6 +11,9 @@ def windows():
 def window_id():
 	return sublime.active_window().id()
 
+def window():
+	return sublime.active_window()
+
 def currentView():
 	if sublime.active_window():
 		if sublime.active_window().active_view():

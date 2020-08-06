@@ -9,9 +9,10 @@
 	{ "keys": ["ctrl+alt+w"], "command": "word_count", "args":{ "searchWholeNotebook": true }},
 	{ "keys": ["ctrl+alt+e"], "command": "check_for_broken_links", "args":{ "also_check_http": false }},
 
-	{ "keys": ["alt+t"], "command": "wiki_search" },
+	{ "keys": ["alt+x"], "command": "search_fulltext" },
 
 	{ "keys": ["alt+f"], "command": "drag_and_drop"},
+	{ "keys": ["alt+b"], "command": "test_test"},
 
 	{ "keys": ["ctrl+alt+q"], "command": "insert_template", "args":{ "wikipage": "C:\\Users\\Andre\\Desktop\\aaa\\newFile.md","template_filename": "timeAndPagename"}},
 ]

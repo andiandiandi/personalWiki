@@ -83,8 +83,10 @@ class Connection:
 		self.socket.on("sel_files",self.selFilesResponse)
 		self.socket.on("word_count", self.wordCountResponse)
 		self.socket.on("create_wikilink", self.createWikilinkResponse)
+		self.socket.on("search_fulltext", self.searchFulltextResponse)
 		self.lock = threading.Lock()
 		self.wikiState = WikiState.disconnected
+
 
 	def sid(self):
 		if self.socket and self.isConnected():
@@ -122,6 +124,9 @@ class Connection:
 		print("received projectInitializeResponse:", str(jsondata))
 		self.updateWikiState(WikiState.projectInitialized)
 
+	def searchFulltextResponse(self,data):
+		localApi.runWindowCommand(self.root_folder,"show_search_result",args={"data":data})
+
 	def createWikilinkResponse(self,data):
 		try:
 			d = json.loads(data)
@@ -152,7 +157,7 @@ class Connection:
 		localApi.runWindowCommand(self.root_folder,"show_word_count",args={"d":data})
 
 	def filesChangedResponse(self,jsondata):
-		print("filesres",jsondata)
+		print(jsondata)
 
 	def clearWikiDatabaseResponse(self,jsondata):
 		print(jsondata)
@@ -162,32 +167,7 @@ class Connection:
 			localApi.runWindowCommand(self.root_folder,"render_wikipage",{"path":pathStr})
 
 	def searchQueryResponse(self, jsondata):
-		print("received searchQueryResponse:" + str(jsondata))
-		#jsondata is no jsonstr
-		d = json.loads(jsondata)
-		print(type(d))
-		l = []
-		if d:
-			for entry in d:
-				if "span" in entry:
-					for s in entry["span"]:
-						fullpath = os.path.join(entry["file"]["path"],entry["file"]["name"] + entry["file"]["extension"])
-						i = {"path":fullpath,
-							"start":s["start"],
-							"span":s["read"]
-							}
-						l.append(json.dumps(i))
-
-		def on_done(index):
-			if index >= 0:
-				item = json.loads(l[index])
-				print(item)
-				localApi.sublime.active_window().run_command("open_view_at_line", {"viewname": item["path"],"line": item["start"]})
-			  #  view = localApi.sublime.active_window().open_file(item["path"])
-				#print(dir(view))
-				#view.run_command("goto_line", {"line": item["start"]} )
-
-		localApi.sublime.active_window().show_quick_panel(l, on_done)
+		localApi.runWindowCommand(self.root_folder,"show_search_result",args={"data":jsondata})
 
 	def isConnected(self):
 		if self.socket:
@@ -196,6 +176,14 @@ class Connection:
 
 	def errorEvent(self,data):
 		localApi.error("Wiki server error: " + data)
+
+	def searchFulltext(self,data):
+		if self.isConnected():
+			#self.send("create_wikilink", json.dumps({"filename":filename,"srcPath":srcPath}))
+			self.send("search_fulltext", json.dumps(data))
+		else:
+			localApi.error("connect to wiki server first")
+
 
 	def createWikilink(self,data):
 		if self.isConnected():
@@ -229,7 +217,7 @@ class Connection:
 
 	def searchQuery(self,searchQuery):
 		if self.isConnected():
-			self.send("search_query", json.dumps(searchQuery))
+			self.send("search_query", searchQuery)
 		else:
 			localApi.error("connect to wiki server first")
 
