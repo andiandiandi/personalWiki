@@ -75,7 +75,6 @@ class Connection:
 		self.socket.on("disconnect", self.disconnectedEvent)
 		self.socket.on("error", self.errorEvent)
 		self.socket.on("project_initialized", self.projectInitializeResponse)
-		self.socket.on("search_query", self.searchQueryResponse)
 		self.socket.on("files_changed", self.filesChangedResponse)
 		self.socket.on("clear_db", self.clearWikiDatabaseResponse)
 		self.socket.on("open_browser", self.openBrowserResponse)
@@ -83,7 +82,8 @@ class Connection:
 		self.socket.on("sel_files",self.selFilesResponse)
 		self.socket.on("word_count", self.wordCountResponse)
 		self.socket.on("create_wikilink", self.createWikilinkResponse)
-		self.socket.on("search_fulltext", self.searchFulltextResponse)
+		self.socket.on("saved_search_query",self.savedSearchQueryResponse)
+		self.socket.on("search_query", self.searchQueryResponse)
 		self.lock = threading.Lock()
 		self.wikiState = WikiState.disconnected
 
@@ -124,9 +124,6 @@ class Connection:
 		print("received projectInitializeResponse:", str(jsondata))
 		self.updateWikiState(WikiState.projectInitialized)
 
-	def searchFulltextResponse(self,data):
-		localApi.runWindowCommand(self.root_folder,"show_search_result",args={"data":data})
-
 	def createWikilinkResponse(self,data):
 		try:
 			d = json.loads(data)
@@ -146,6 +143,9 @@ class Connection:
 
 		except:
 			return
+
+	def savedSearchQueryResponse(self,data):
+		print(data)
 
 	def selContentResponse(self,data):
 		print(data)
@@ -167,7 +167,7 @@ class Connection:
 			localApi.runWindowCommand(self.root_folder,"render_wikipage",{"path":pathStr})
 
 	def searchQueryResponse(self, jsondata):
-		localApi.runWindowCommand(self.root_folder,"show_search_result",args={"data":jsondata})
+		localApi.runWindowCommand(self.root_folder,"show_search_result",args={"queryResult":jsondata})
 
 	def isConnected(self):
 		if self.socket:
@@ -176,13 +176,6 @@ class Connection:
 
 	def errorEvent(self,data):
 		localApi.error("Wiki server error: " + data)
-
-	def searchFulltext(self,data):
-		if self.isConnected():
-			#self.send("create_wikilink", json.dumps({"filename":filename,"srcPath":srcPath}))
-			self.send("search_fulltext", json.dumps(data))
-		else:
-			localApi.error("connect to wiki server first")
 
 
 	def createWikilink(self,data):
@@ -202,6 +195,12 @@ class Connection:
 	def clearWikiDatabase(self):
 		d = {"root_folder":self.root_folder}
 		self.send("clear_db",json.dumps(d))
+
+	def savedSearchQuery(self):
+		if self.isConnected():
+			self.send("saved_search_query",self.root_folder)
+		else:
+			localApi.error("connect to wiki server first")
 
 	def projectInitialize(self):
 		if self.isConnected():
@@ -226,23 +225,6 @@ class Connection:
 			self.send("render_wikipage",path)
 		else:
 			localApi.error("connect to wiki server first")
-
-	def filesChanged(self,data,updateEvent="all"):
-		jsondata = json.dumps(data)
-		apiEvent = None
-		if updateEvent == "all":
-			apiEvent = "files_changed"
-		elif updateEvent == "modified":
-			apiEvent = "file_modified"
-		elif updateEvent == "created":
-			apiEvent = "file_created"
-		elif updateEvent == "deleted":
-			apiEvent = "file_deleted"
-		elif updateEvent == "moved":
-			apiEvent = "file_moved"
-
-		if jsondata and apiEvent:
-			self.send(apiEvent,jsondata)
 
 	def wordCount(self,path=None):
 		if self.isConnected():

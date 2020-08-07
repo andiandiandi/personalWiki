@@ -1,6 +1,7 @@
 import sublime
 import sublime_plugin
 import json
+import os
 
 import shlex
 import imp
@@ -13,7 +14,14 @@ imp.reload(sessionManager)
 imp.reload(pathManager)
 imp.reload(localApi)
 
-class SearchFulltextCommand(sublime_plugin.TextCommand):
+class SavedSearchQueryCommand(sublime_plugin.TextCommand):
+	def run(self, edit):
+		root_folder = pathManager.root_folder()
+		if sessionManager.hasProject(root_folder):
+			con = sessionManager.connection(root_folder)
+			con.savedSearchQuery()
+
+class SearchQueryCommand(sublime_plugin.TextCommand):
 	def run(self, edit):
 		root_folder = pathManager.root_folder()
 		if sessionManager.hasProject(root_folder):
@@ -22,10 +30,7 @@ class SearchFulltextCommand(sublime_plugin.TextCommand):
 			def on_done(searchQuery):
 				print(searchQuery)
 				con.searchQuery(searchQuery)
-				#con.searchFulltext({"phrase":"haus nicht","linespan":10})
 
-			def on_cancel():
-				print("cancelled")
 
 			localApi.window().show_input_panel("Wiki-Search", "", on_done, None,None)
 
@@ -48,34 +53,66 @@ class SelectInViewCommand(sublime_plugin.TextCommand):
 
 
 class ShowSearchResultCommand(sublime_plugin.TextCommand):
-	def run(self,edit,data):
+	def run(self,edit,queryResult):
 		try:
-			print("DATA",data)
+			queryResultParsed = json.loads(queryResult)
+			searchType = queryResultParsed["type"]
+			data = queryResultParsed["data"]
 			if data:
-				d = json.loads(data)
-
 				c = """
 					<html>
 						<body>
 							<style>
 								a.fillthediv{display:block;height:100%;width:1000px;text-decoration: none;}
 							</style>
-						
-				"""
-				for entry in d:
-					subHtml = """
-							<div>
-								<a href="{2}::{3}" class="fillthediv">
-									{0}
-									{1}
-								</a>
-							</div>
 							
-					""".format(("<p>rating:" + str(entry["rating"]) + "</p>") if "rating" in entry else "",("<p>" + entry["fullphrase"] + "</p>")
-								 if "fullphrase" in entry else ("<p>" + entry["filepath"] + "::" + str(entry["lines"]) + "</p>"),
-								entry["filepath"],entry["lines"] if "lines" in entry and entry["lines"] else [1])
+					"""
+				if searchType == "tagsearch":
+					for entry in data:
+						if entry["lines"]:
+							for line in entry["lines"]:
+								subHtml = """
+										<div>
+											<a href="{2}::{3}" class="fillthediv">
+												<p>file:{0} | line:{1}</p>
+											</a>
+										</div>
+										
+								""".format(os.path.basename(entry["filepath"]),line,entry["filepath"],entry["lines"])
 
-					c += subHtml
+								c += subHtml
+						else:
+							subHtml = """
+										<div>
+											<a href="{1}::{2}" class="fillthediv">
+												<p>file: {0}</p>
+											</a>
+										</div>
+										
+								""".format(os.path.basename(entry["filepath"]),entry["filepath"],[0])
+								
+							c += subHtml
+
+
+
+				elif searchType == "fulltextsearch":
+					for entry in data:
+						subHtml = """
+								<div>
+									<a href="{2}::{3}" class="fillthediv">
+										<p>rating: {0} | file: {5} | lines: {4}</p>
+										<p>{1}</p>
+									</a>
+								</div>
+								
+						""".format(str(round((float(entry["rating"]) * 100),2)) + "%",entry["fullphrase"],
+									entry["filepath"],entry["lines"],entry["lines"][0] if len(entry["lines"]) == 1 else str(entry["lines"][0]) + "-" + str(entry["lines"][-1]),
+									os.path.basename(entry["filepath"]))
+
+						c += subHtml
+				else:
+					localApi.error("unsupported query result: " + queryResult)
+					return
 
 				c += """
 					</body>

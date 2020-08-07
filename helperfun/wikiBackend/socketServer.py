@@ -71,6 +71,18 @@ def on_searchQuery(jsonStr):
 	else:
 		error("you have to initialize the database first", request.sid)
 
+@socketio.on('saved_search_query')
+def on_listSearchQuery(jsonStr):
+	wiki = get(request.sid)
+	if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
+		response = wiki.dbWrapper.listSearchQuery()
+		if response["status"] == "exception":
+			error(response["response"],request.sid)
+		else:
+			socketio.emit("list_search_query", json.dumps(response["response"]), room = request.sid)
+	else:
+		error("you have to initialize the database first", request.sid)
+
 
 @socketio.on('clear_db')
 def on_clearDB(jsonStr):
@@ -170,15 +182,6 @@ def subscribeFilesChanged(data):
 					sessionManager.addSubscriber(request.sid,targetSid,eventname,socketio,"/events",path)
 	except Exception as E:
 		print("EXP in subscribe:",str(E))
-
-@socketio.on('files_changed')
-def on_filesChanged(jsonStr):
-	wiki = get(request.sid)
-	if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
-		result = wiki.dbWrapper.filesChanged(json.loads(jsonStr))
-		socketio.emit("files_changed", str(result), room = request.sid)
-	else:
-		error("you have to initialize the project first", request.sid)
 
 @socketio.on('sel_content')
 def on_selContent(jsonStr):

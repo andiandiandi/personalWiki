@@ -9,7 +9,8 @@
 	{ "keys": ["ctrl+alt+w"], "command": "word_count", "args":{ "searchWholeNotebook": true }},
 	{ "keys": ["ctrl+alt+e"], "command": "check_for_broken_links", "args":{ "also_check_http": false }},
 
-	{ "keys": ["alt+x"], "command": "search_fulltext" },
+	{ "keys": ["alt+x"], "command": "search_query" },
+	{ "keys": ["alt+y"], "command": "saved_search_query" },
 
 	{ "keys": ["alt+f"], "command": "drag_and_drop"},
 	{ "keys": ["alt+b"], "command": "test_test"},

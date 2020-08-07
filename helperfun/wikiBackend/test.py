@@ -48,7 +48,8 @@ filename2 = "C:\\Users\\Andre\\Desktop\\onefilewiki\\subfolder\\renamedpage.md"
 socketFakeServer.on_initializeProject(123,onefilewiki,socket)
 socketFakeServer.on_clearDB(123,onefilewiki)
 socketFakeServer.on_initializeProject(123,onefilewiki,socket)
-socketFakeServer.on_realSearchQuery(123,"# -t -n")#filepath= "C:\\Users\\Andre\\Desktop\\onefilewiki\\newfile.md")
+socketFakeServer.on_realSearchQuery(123,"+ meer nicht -f newfile.md")#filepath= "C:\\Users\\Andre\\Desktop\\onefilewiki\\newfile.md")
+socketFakeServer.on_listSearchQuery(123,"")
 socketFakeServer.on_disconnect(123)
 
 """

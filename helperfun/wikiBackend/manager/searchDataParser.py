@@ -12,13 +12,13 @@ level
 """
 
 
-def headerHandler(files,rootelement,rootvalues,db):
+def search(files,rootelement,rootvalues,db):
 	elemn = extn(rootelement)
 	filesv = extv(files)
 	filesn = extn(files)
 
 	if elemn:
-		return fetch_without_element("headers",filesv,filesn,db)
+		return fetch_without_element(rootelement["value"],filesv,filesn,db)
 	else:	
 		with db.bind_ctx(models.modellist):
 			#elementmapping {'headers': <CharField: Content.headers>, 'footnotes': <CharField: Content.footnotes>, 'textlinks': <CharField: Content.textlinks>, 'imagelinks': <CharField: Content.imagelinks>}
@@ -226,10 +226,6 @@ def extn(obj):
 	else:
 		raise Exception("Key 'negate' not found") 
 
-elementHandlers = {"headers": headerHandler,
-				   "footnotes": footnoteHandler,
-				   "imagelinks": imagelinkHandler,
-				   "textlinks": textlinkHandler,}
 elementmapping = {"headers":models.Content.headers,
 				  "footnotes": models.Content.footnotes,
 				  "textlinks": models.Content.textlinks,

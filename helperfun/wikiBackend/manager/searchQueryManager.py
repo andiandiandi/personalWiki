@@ -19,6 +19,10 @@ def parseQuery(queryString):
 	query_tokens = shlex.split(queryString)
 	phrase=[]
 	args ={}
+	addToSearchHistory = False
+	if query_tokens[0] == "+":
+		addToSearchHistory = True
+		query_tokens.pop(0)
 	skipNext = False
 	for i,word in enumerate(query_tokens):
 		if skipNext:
@@ -64,11 +68,13 @@ def parseQuery(queryString):
 				return responseGenerator.createExceptionResponse("unsupported tag phrase: " + word)
 		return responseGenerator.createSuccessResponse(json.dumps({"type":"tagsearch",
 																	"phrase":phrase,
-																	"args":args}))
+																	"args":args,
+																	"searchhistory":" ".join(query_tokens) if addToSearchHistory else None}))
 	else:
 		return responseGenerator.createSuccessResponse(json.dumps({"type":"fulltextsearch",
 																	"phrase":phrase,
-																	"args":args}))
+																	"args":args,
+																	"searchhistory":" ".join(query_tokens) if addToSearchHistory else None}))
 
 def getElement(tag):
 	if tag == '#':

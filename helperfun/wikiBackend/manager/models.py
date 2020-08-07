@@ -69,4 +69,10 @@ class Content(Model):
 
 		return False	
 
-modellist = [File,Image,Folder,Content,DatabaseMetadata]
+class SearchQuery(Model):
+	id = AutoField()
+	rawString = CharField()
+	creationdate = FloatField()
+
+
+modellist = [File,Image,SearchQuery,Folder,Content,DatabaseMetadata]

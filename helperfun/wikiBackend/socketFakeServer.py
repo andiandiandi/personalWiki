@@ -36,6 +36,19 @@ def on_initializeProject(sid,jsonStr):
 	else:
 		connections[sid].emit("project_initialized","successfully initialized project", room = sid)
 
+def on_listSearchQuery(sid,jsonStr):
+	wiki = get(sid)
+	if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
+		response = wiki.dbWrapper.listSearchQuery()
+		if response["status"] == "exception":
+			error(response["response"], sid)
+		else:
+			connections[sid].emit("list_search_query", json.dumps(response["response"]), room = sid)
+	else:
+		error("you have to initialize the database first", sid)
+
+
+
 def on_searchFulltext(sid,phrase,linespan=0,filepath=None):
 	wiki = get(sid)
 	if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:

@@ -5,6 +5,7 @@ from .libs.peewee.playhouse.sqlite_ext import *
 from . import models
 
 import json
+import time
 
 import threading
 from threading import Lock
@@ -258,6 +259,7 @@ class DbWrapper:
 		self.modeldict["file"] = models.File
 		self.modeldict["content"] = models.Content
 		self.modeldict["image"] = models.Image
+		self.modeldict["searchquery"] = models.SearchQuery
 
 		self.lock = Lock()
 
@@ -288,6 +290,8 @@ class DbWrapper:
 			return response
 		elif response["status"] == "success":
 			parsedQueryD = json.loads(response["response"])
+			if "searchhistory" in parsedQueryD and parsedQueryD["searchhistory"]:
+				self.addSearchQuery(parsedQueryD["searchhistory"])				
 
 			if parsedQueryD["type"] == "tagsearch":
 				jsondataTagQuery = searchQueryManager.jsondataTagQuery(parsedQueryD["phrase"],parsedQueryD["args"])
@@ -706,6 +710,7 @@ class DbWrapper:
 			phrase = jsondataFulltextQuery["phrase"]
 			print(jsondataFulltextQuery)
 			query = None
+			toret = {"type":"fulltextsearch"}
 			if files_exclude:
 				query = models.File.select(models.File.fullpath,models.Content.wordhash).join(models.Content).where(~models.File.fileIn(files))
 			else:
@@ -725,7 +730,8 @@ class DbWrapper:
 					return responseGenerator.createExceptionResponse("fulltext-search across whole notebook failed: " + " | " + str(E) + " | " + str(type(E).__name__))
 
 			result = sorted(result, key=lambda k: k['rating'], reverse=True)
-			return responseGenerator.createSuccessResponse(result)
+			toret["data"] = result
+			return responseGenerator.createSuccessResponse(toret)
 
 	def clearDatabase(self):
 		try:
@@ -859,6 +865,21 @@ class DbWrapper:
 				return content
 			return None
 
+	def listSearchQuery(self):
+		with self.db.bind_ctx(models.modellist):
+			try:
+				searchQuery = models.SearchQuery.select()
+				l = []
+				for row in searchQuery:
+					l.append({"rawString":row.rawString,"creationdate":row.creationdate})
+				return responseGenerator.createSuccessResponse(l)
+			except Exception as E:
+				return responseGenerator.createExceptionResponse("could not list search queries: " + str(E) + " | " + type(E).__name__)
+
+	def addSearchQuery(self,queryString):
+		with self.db.bind_ctx(models.modellist):
+			c = self.modeldict["searchquery"].create(rawString = queryString,creationdate = int(round(time.time() * 1000)))
+
 
 	def initProject(self,db, jsondata, parentID = None):
 		persisted_Folder = self.modeldict["folder"].create(name=jsondata["name"],parentid=parentID)
@@ -939,7 +960,11 @@ class DbWrapper:
 			element = jsondata["element"]
 			values = jsondata["values"]
 			try:
-				return responseGenerator.createSuccessResponse(searchDataParser.elementHandlers[element["value"]](files,element,values,self.db))
+				toret = {"type":"tagsearch"}
+				result = searchDataParser.search(files,element,values,self.db)
+				#elementHandlers[element["value"]](files,element,values,self.db)
+				toret["data"] = result
+				return responseGenerator.createSuccessResponse(toret)
 			except Exception as E:
 				return responseGenerator.createExceptionResponse("could not run tag-searchQuery: " + str(E) + " | " + type(E).__name__)
 		else:
