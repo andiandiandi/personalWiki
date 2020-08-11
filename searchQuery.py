@@ -37,8 +37,8 @@ class SavedSearchQueryCommand(sublime_plugin.TextCommand):
 										<div>
 											<a href="{0}" class="fillthediv">
 												<p>{0}</p>
+												<p><a href="{0} -d">delete</a></p>
 											</a>
-											<p><a href="{0} -d">delete</a></p>
 										</div>
 										
 								""".format(entry["rawString"])
