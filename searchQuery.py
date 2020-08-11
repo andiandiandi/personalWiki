@@ -15,20 +15,52 @@ imp.reload(pathManager)
 imp.reload(localApi)
 
 class SavedSearchQueryCommand(sublime_plugin.TextCommand):
-	def run(self, edit):
-		root_folder = pathManager.root_folder()
-		if sessionManager.hasProject(root_folder):
-			con = sessionManager.connection(root_folder)
-			con.savedSearchQuery()
+	def run(self, edit, d = None):
+		if not d:
+			root_folder = pathManager.root_folder()
+			if sessionManager.hasProject(root_folder):
+				con = sessionManager.connection(root_folder)
+				con.savedSearchQuery()
+		else:
+			try:
+				data = json.loads(d)
+				c = """
+					<html>
+						<body>
+							<style>
+								a.fillthediv{display:block;height:100%;width:1000px;text-decoration: none;}
+							</style>
+							
+					"""
+				for entry in data:
+					c += """
+										<div>
+											<a href="{0}" class="fillthediv">
+												<p>{0}</p>
+											</a>
+											<p><a href="{0} -d">delete</a></p>
+										</div>
+										
+								""".format(entry["rawString"])
+
+				def on_navigate(href):
+					sublime.active_window().run_command("search_query",args={"searchQuery":href})
+
+				self.view.show_popup(c,max_width=1000,max_height=1080,location=0,on_navigate=on_navigate,on_hide=None)
+			except Exception as E:
+				localApi.error(str(E))
 
 class SearchQueryCommand(sublime_plugin.TextCommand):
-	def run(self, edit):
+	def run(self, edit, searchQuery = None):
 		root_folder = pathManager.root_folder()
 		if sessionManager.hasProject(root_folder):
 			con = sessionManager.connection(root_folder)
 
+			if searchQuery:
+				con.searchQuery(searchQuery)
+				return
+
 			def on_done(searchQuery):
-				print(searchQuery)
 				con.searchQuery(searchQuery)
 
 
@@ -110,6 +142,8 @@ class ShowSearchResultCommand(sublime_plugin.TextCommand):
 									os.path.basename(entry["filepath"]))
 
 						c += subHtml
+				elif searchType == "deleted":
+					pass
 				else:
 					localApi.error("unsupported query result: " + queryResult)
 					return

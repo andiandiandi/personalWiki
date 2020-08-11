@@ -145,7 +145,7 @@ class Connection:
 			return
 
 	def savedSearchQueryResponse(self,data):
-		print(data)
+		localApi.runWindowCommand(self.root_folder,"saved_search_query",args={"d":data})
 
 	def selContentResponse(self,data):
 		print(data)
@@ -196,6 +196,14 @@ class Connection:
 		d = {"root_folder":self.root_folder}
 		self.send("clear_db",json.dumps(d))
 
+	def deleteSavedQuery(self,query):
+		print("DELETESAVEDQUERY:" + query)
+		return
+		if self.isConnected():
+			self.send("delete_saved_query",self.root_folder)
+		else:
+			localApi.error("connect to wiki server first")
+
 	def savedSearchQuery(self):
 		if self.isConnected():
 			self.send("saved_search_query",self.root_folder)
@@ -215,6 +223,7 @@ class Connection:
 			localApi.error("connect to wiki server first")
 
 	def searchQuery(self,searchQuery):
+		print(searchQuery)
 		if self.isConnected():
 			self.send("search_query", searchQuery)
 		else:

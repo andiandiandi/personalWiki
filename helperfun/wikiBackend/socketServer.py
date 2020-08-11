@@ -72,14 +72,14 @@ def on_searchQuery(jsonStr):
 		error("you have to initialize the database first", request.sid)
 
 @socketio.on('saved_search_query')
-def on_listSearchQuery(jsonStr):
+def on_listSearchQuery(root_folder):
 	wiki = get(request.sid)
 	if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
 		response = wiki.dbWrapper.listSearchQuery()
 		if response["status"] == "exception":
 			error(response["response"],request.sid)
 		else:
-			socketio.emit("list_search_query", json.dumps(response["response"]), room = request.sid)
+			socketio.emit("saved_search_query", json.dumps(response["response"]), room = request.sid)
 	else:
 		error("you have to initialize the database first", request.sid)
 

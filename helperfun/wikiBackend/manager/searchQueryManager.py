@@ -5,7 +5,7 @@ from . import responseGenerator
 
 
 def supportedArg(arg):
-	supportedArgs = ["s","f","fe","t","n"]
+	supportedArgs = ["s","f","fe","t","n","d"]
 	return arg in supportedArgs
 
 def supportedTagPhrase(phrase):
@@ -36,6 +36,9 @@ def parseQuery(queryString):
 			word = word.replace("-","")
 			if not supportedArg(word):
 				return responseGenerator.createExceptionResponse("unsupported argument: " + word)
+			elif word == "d":
+				rawQuery = queryString[:-3]
+				return responseGenerator.createSuccessResponse(json.dumps({"type":"delete","query":rawQuery}))
 			elif word == "t":
 				args[word] = None
 				skipNext = False

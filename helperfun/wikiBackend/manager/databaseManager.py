@@ -292,7 +292,8 @@ class DbWrapper:
 			parsedQueryD = json.loads(response["response"])
 			if "searchhistory" in parsedQueryD and parsedQueryD["searchhistory"]:
 				self.addSearchQuery(parsedQueryD["searchhistory"])				
-
+			if parsedQueryD["type"] == "delete":
+				return self.deleteSavedQuery(parsedQueryD["query"])
 			if parsedQueryD["type"] == "tagsearch":
 				jsondataTagQuery = searchQueryManager.jsondataTagQuery(parsedQueryD["phrase"],parsedQueryD["args"])
 				return self.runSearchQuery(jsondataTagQuery)
@@ -301,6 +302,19 @@ class DbWrapper:
 				return self.searchFulltext(jsondataFulltextQuery)
 		else:
 			return response
+
+	def deleteSavedQuery(self,queryString):
+		with self.db.bind_ctx(models.modellist):
+			searchQuery = self.getSearchQuery(queryString)
+			if not searchQuery:
+				return responseGenerator.createExceptionResponse("could not delete queryString: " + str(queryString) + " | " + "query-string not found in database")
+			else:
+				try:
+					searchQuery.delete_instance()
+					return responseGenerator.createSuccessResponse({"type":"deleted", "data":str(queryString)})
+				except Exception as E:
+					return responseGenerator.createExceptionResponse("could not remove search-query: " + str(queryString) + " | " + str(type(E).__name__))
+
 
 	def wordCount(self, path = None):
 		try:
@@ -864,6 +878,14 @@ class DbWrapper:
 			if content:
 				return content
 			return None
+
+	def getSearchQuery(self,searchQuery):
+		with self.db.bind_ctx(models.modellist):
+			q = models.SearchQuery.get_or_none(models.SearchQuery.rawString == searchQuery)
+			if q:
+				return q
+			return None
+
 
 	def listSearchQuery(self):
 		with self.db.bind_ctx(models.modellist):
