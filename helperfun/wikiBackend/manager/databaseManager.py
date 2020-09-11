@@ -6,28 +6,19 @@ from . import models
 
 import json
 import time
-
+import re
 import threading
 from threading import Lock
 
 from . import searchDataParser
 from . import responseGenerator
-
-from .libs import mistletoe
-from .libs.mistletoe.ast_renderer import ASTRenderer
 from . import sessionManager
 from . import pathManager
 from .pathManager import Filetype
 from . import wordCount
-
 from . import searchQueryManager
-
 from . import templateManager
-
-from fuzzywuzzy import fuzz
-
-import itertools
-from collections import Counter
+from . import multiPurposeParser
 
 urlRegex = re.compile(
 		r'^(?:http|ftp)s?://' # http:// or https://
@@ -37,225 +28,11 @@ urlRegex = re.compile(
 		r'(?::\d+)?' # optional port
 		r'(?:/?|[/?]\S+)$', re.IGNORECASE)
 
-def list_of_imagelinks(md_ast):
-	objs = []
-	if "type" in md_ast:
-		if md_ast["type"] == "Image":
-			objs.append(md_ast)
-	if "children" in md_ast:
-		for child in md_ast["children"]:
-			objs += list_of_imagelinks(child)
-
-	return objs
-
-def list_of_textlinks(md_ast):
-	objs = []
-	if "type" in md_ast:
-		if "Link" in md_ast["type"]:
-			objs.append(md_ast)
-	if "children" in md_ast:
-		for child in md_ast["children"]:
-			objs += list_of_textlinks(child)
-
-	return objs
-
-def list_of_headers(md_ast):
-	objs = []
-	if "type" in md_ast:
-		if "Heading" in md_ast["type"]:
-			objs.append(md_ast)
-	if "children" in md_ast:
-		for child in md_ast["children"]:
-			objs += list_of_headers(child)
-
-	return objs
-
-def list_of_footnotes(md_ast,footnotes = False):
-	objs = []
-	if not footnotes:
-		if "footnotes" in md_ast:
-			objs += list_of_footnotes(md_ast["footnotes"],footnotes = True)
-	else:
-		for footnote in md_ast:
-			footnote_ast = md_ast[footnote]
-			target = footnote_ast[0] if 0 <= 0 < len(footnote_ast) else ""
-			title = footnote_ast[1] if 0 <= 1 < len(footnote_ast) else ""
-			span = footnote_ast[2] if 0 <= 1 < len(footnote_ast) else ""
-			objs.append({"name":footnote, "target":target, "title":title, "span": span})
-
-	return objs
-
-
-def textDict(md_ast):
-	l = []
-	if "children" in md_ast:
-		for entry in md_ast["children"]:
-			l += textDict(entry)
-	elif "content" in md_ast:
-			content = re.sub('\W+',' ', md_ast["content"]).strip()
-			if content:
-				l.append({"start":md_ast["span"]["start"],"read":md_ast["span"]["read"],"content": content})
-	return l
-
-
-
-def createWordHash(textDict):
-	d = {}
-	d["lines"] = {}
-	for entry in textDict:
-		content = entry["content"]
-		d["lines"][entry["start"]] = content
-		for word in content.split(" "):
-			if word:
-				if word[:1] not in d:
-					d.setdefault(word[:1],[]).append((word,list(set([entry["start"]]))))
-				else:
-					#(word,[start,..])
-					found = False
-					for e in d[word[:1]]:
-						if e[0] == word:
-							e[1].append(entry["start"])
-							found = True
-							break
-					if not found:
-						d[word[:1]].append((word,list(set([entry["start"]]))))
-
-	return d
-
-
-def parseText(md_ast, d = None, p = 0):
-	if d is None:
-		d = {}
-	for entry in md_ast:
-		if "children" in entry:
-			parseText(entry["children"],d=d,p=p)
-			p+=1
-		elif "text" in entry:
-			if entry["text"]:
-				for s in entry["text"].split():
-					if s[0] in d:
-						d[s[0]].append((s,p))
-					else: 
-						d[s[0]] = []
-						d[s[0]].append((s,p))
-	return d
-
-def search(phrase, wordHash, linespan=0,filepath = None):
-	def validLines(tupl):
-		for t in tupl:
-			found = True
-			for x in tupl:
-				if t == x:
-					continue
-				else:
-					if not abs(t-x) <= int(linespan):
-						found = False
-						break;
-			if found:
-				return True
-
-		return False
-
-	def lines(l):
-
-		result = set()
-		if len(l) > 1:
-			for e in itertools.product(*l):
-				validTuple = validLines(e)
-				if validTuple:
-					sortedUniqueLines = tuple(sorted(set(e)))
-					if len(sortedUniqueLines) > 2:
-						sortedUniqueLines = (sortedUniqueLines[0],sortedUniqueLines[-1])
-					result.add(sortedUniqueLines)
-			return list(result)
-		else:
-			entry = l[0]
-			return [tuple([i]) for i in entry]
-
-	def findWord(searchword,wordlist):
-		bestratio = -1
-		bestmatch = None
-		for wordLineTuple in wordlist:
-			#word
-			w = wordLineTuple[0]
-			#here compare
-			ratio = fuzz.ratio(w.lower(),searchword.lower())
-			if ratio >= 85 and ratio > bestratio:
-				bestmatch = wordLineTuple[1]
-
-		return bestmatch
-
-	finalResult = None
-	#["hallo ich","auto meer"]
-	combinations = []
-	#["hallo ich"]
-	abort = False
-	if not type(phrase) == list:
-		phrase = [w.replace(" ","") for w in phrase.split(" ")]
-	for word in phrase:
-		#[(word,[start])]
-		if not word[:1] in wordHash:
-			return None
-		wordlist = wordHash[word[:1]]
-		#(word,[start])
-		listOfLines = findWord(word,wordlist)
-		if listOfLines:			
-			combinations.append(listOfLines)
-		else:
-			abort = True
-			break;
-
-	if abort:
-		return None
-	else:
-		result = lines(combinations)
-		l = []
-		for i in result:
-			a = Counter(i).most_common(1)[0]
-			fullphrase = "PREVIEW NOT AVAILABLE"
-			try:
-				fullphrase = "...".join([wordHash["lines"][str(line)] for line in i])
-			except:
-				pass
-			r = {"lines":i,"rating":round(i[0]/(sum(i)/len(i)),2),"fullphrase":fullphrase}
-			if filepath:
-				r["filepath"] = filepath
-			l.append(r)
-		if l:
-			sortedFindings = sorted(l, key=lambda k: k['rating'], reverse=True) 
-			finalResult = sortedFindings
-
-	return finalResult
-
-
-def parseContentMistletoe(content):
-	tree = mistletoe.markdown(content, ASTRenderer)
-	#print(tree)
-	return tree
-
-def md2html(content,path,wikilinks=None,base64PathDict = None):
-	try:
-		tree = mistletoe.markdown(content,path=path,wikilinks=wikilinks,base64PathDict=base64PathDict)
-		return tree
-	except Exception as e:
-		return str(e)
-
-def extractFiles(jsondata):
-	f = []
-	if "files" in jsondata:
-		f += jsondata["files"]
-	if "folders" in jsondata:
-		for folder in jsondata["folders"]:
-			f += extractFiles(folder)
-
-	return f
-
-class DbWrapper:
+class Indexer:
 	def __init__(self,wiki):
 		self.db = None
 		self.wiki = wiki
 		self.modeldict = {}
-		self.modeldict["folder"] = models.Folder
 		self.modeldict["file"] = models.File
 		self.modeldict["content"] = models.Content
 		self.modeldict["image"] = models.Image
@@ -275,7 +52,6 @@ class DbWrapper:
 
 	def closeConnection(self):
 		self.db.close()
-
 
 	def resetTables(self):
 		self.dropTables()
@@ -314,7 +90,6 @@ class DbWrapper:
 					return responseGenerator.createSuccessResponse({"type":"deleted", "data":str(queryString)})
 				except Exception as E:
 					return responseGenerator.createExceptionResponse("could not remove search-query: " + str(queryString) + " | " + str(type(E).__name__))
-
 
 	def wordCount(self, path = None):
 		try:
@@ -419,7 +194,7 @@ class DbWrapper:
 		if not json_project_structure:
 			return false
 
-		filesJson = extractFiles(json_project_structure)
+		filesJson = multiPurposeParser.extractFiles(json_project_structure)
 
 		try:
 			#self.dropTables()
@@ -484,9 +259,20 @@ class DbWrapper:
 			except Exception as E:
 				return responseGenerator.createExceptionResponse("could not delete file: " + fullpath + " | " + str(E))
 
+	def tablesExist(self):
+		with self.db.bind_ctx(models.modellist):
+			if self.db:
+				requirementTables = ['file', 'image','content']
+				tables = self.db.get_tables()
+				return set(requirementTables) <= set(tables)
+
+			return False
 
 	def filesChanged(self,queueDict):
 		with self.lock:
+			if not self.tablesExist():
+				return responseGenerator.createExceptionResponse("could not index: tables do not exist.. initialize db first")
+
 			q = queueDict["queue"]
 			filesChangedEvent = False
 			updateWikipageEvent = False
@@ -634,20 +420,16 @@ class DbWrapper:
 	def updateWikipage(self,fileid,content):
 		with self.db.bind_ctx(models.modellist):
 			try:
-				tree = parseContentMistletoe(content)
+				tree = multiPurposeParser.parseContentMistletoe(content)
 				dictTree = json.loads(tree)
-				#textdict = json.dumps(parseText(tree))
-				imagelinks = json.dumps(list_of_imagelinks(dictTree))
-				textlinks = json.dumps(list_of_textlinks(dictTree))
-				textdict = ""
-				headers = json.dumps(list_of_headers(dictTree))
-				footnotes = json.dumps(list_of_footnotes(dictTree))
+				imagelinks = json.dumps(multiPurposeParser.list_of_imagelinks(dictTree))
+				textlinks = json.dumps(multiPurposeParser.list_of_textlinks(dictTree))
+				headers = json.dumps(multiPurposeParser.list_of_headers(dictTree))
+				footnotes = json.dumps(multiPurposeParser.list_of_footnotes(dictTree))
 				wordsCharsReadtime = json.dumps(wordCount.countWordsCharReadtime(content))
-				w = createWordHash(textDict(dictTree))
-				print("w",w)
+				w = multiPurposeParser.createWordHash(multiPurposeParser.textDict(dictTree))
 				wordhash = json.dumps(w)
-				print("update wordhash",wordhash)
-				contentupdateQuery = models.Content.update(wordhash=wordhash, textdict = textdict, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes, rawString = content, wordsCharsReadtime=wordsCharsReadtime).where(models.Content.fileid == fileid)
+				contentupdateQuery = models.Content.update(wordhash=wordhash, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes, rawString = content, wordsCharsReadtime=wordsCharsReadtime).where(models.Content.fileid == fileid)
 				contentupdateQuery.execute()
 
 				return responseGenerator.createSuccessResponse("updated wikipage with fileid: " + str(fileid))
@@ -695,20 +477,16 @@ class DbWrapper:
 	def insertWikipage(self,fileid,content):
 		with self.db.bind_ctx(models.modellist):
 			try:
-				tree = parseContentMistletoe(content)
+				tree = multiPurposeParser.parseContentMistletoe(content)
 				dictTree = json.loads(tree)
-				#textdict = json.dumps(parseText(tree))
-				imagelinks = json.dumps(list_of_imagelinks(dictTree))
-				textlinks = json.dumps(list_of_textlinks(dictTree))
-				textdict = ""
-				headers = json.dumps(list_of_headers(dictTree))
-				footnotes = json.dumps(list_of_footnotes(dictTree))
+				imagelinks = json.dumps(multiPurposeParser.list_of_imagelinks(dictTree))
+				textlinks = json.dumps(multiPurposeParser.list_of_textlinks(dictTree))
+				headers = json.dumps(multiPurposeParser.list_of_headers(dictTree))
+				footnotes = json.dumps(multiPurposeParser.list_of_footnotes(dictTree))
 				wordsCharsReadtime = json.dumps(wordCount.countWordsCharReadtime(content))
-				w = createWordHash(textDict(dictTree))
-				print("w",w)
+				w = multiPurposeParser.createWordHash(multiPurposeParser.textDict(dictTree))
 				wordhash = json.dumps(w)
-				print("insert wordhash",wordhash)
-				c = self.modeldict["content"].create(wordhash=wordhash,textdict = textdict, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes, rawString = content,wordsCharsReadtime=wordsCharsReadtime,fileid=fileid)
+				c = self.modeldict["content"].create(wordhash=wordhash, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes, rawString = content,wordsCharsReadtime=wordsCharsReadtime,fileid=fileid)
 
 				return responseGenerator.createSuccessResponse("inserted wikipage:" + str(fileid))
 
@@ -722,7 +500,6 @@ class DbWrapper:
 			files_exclude = jsondataFulltextQuery["files_exclude"]
 			span = jsondataFulltextQuery["span"]
 			phrase = jsondataFulltextQuery["phrase"]
-			print(jsondataFulltextQuery)
 			query = None
 			toret = {"type":"fulltextsearch"}
 			if files_exclude:
@@ -737,7 +514,7 @@ class DbWrapper:
 				wordhash = row.content.wordhash
 				try:
 					wordhashD = json.loads(wordhash)
-					findingsD = search(phrase,wordhashD,linespan=span,filepath=row.fullpath)
+					findingsD = multiPurposeParser.search(phrase,wordhashD,linespan=span,filepath=row.fullpath)
 					if findingsD:
 						result += findingsD
 				except Exception as E:
@@ -796,7 +573,7 @@ class DbWrapper:
 									relpath = l[row.fullpath]
 									base64PathDict[relpath] = DataUriGraphic(row.image.base64,row.image.mimetype)
 
-						html = md2html(content.rawString, path, wikilinks = content.textlinks, base64PathDict = base64PathDict)
+						html = multiPurposeParser.md2html(content.rawString, path, wikilinks = content.textlinks, base64PathDict = base64PathDict)
 						return html
 					else:
 						return "CONTENT OF WIKIPAGE NOT FOUND IN DATABASE"
@@ -842,15 +619,6 @@ class DbWrapper:
 			except Exception as e:
 				return str(e)
 
-	def selFolders(self):
-		with self.db.bind_ctx(models.modellist):
-			r = models.Folder.select()
-			for f in r:	
-				print(f.name)
-				print(f.id)
-				print(f.parentid)
-				print("**********************************")
-
 	def selFiles(self):
 		with self.db.bind_ctx(models.modellist):
 			r = models.File.select()
@@ -886,7 +654,6 @@ class DbWrapper:
 				return q
 			return None
 
-
 	def listSearchQuery(self):
 		with self.db.bind_ctx(models.modellist):
 			try:
@@ -901,80 +668,6 @@ class DbWrapper:
 	def addSearchQuery(self,queryString):
 		with self.db.bind_ctx(models.modellist):
 			c = self.modeldict["searchquery"].create(rawString = queryString,creationdate = int(round(time.time() * 1000)))
-
-
-	def initProject(self,db, jsondata, parentID = None):
-		persisted_Folder = self.modeldict["folder"].create(name=jsondata["name"],parentid=parentID)
-		parentID = persisted_Folder.id
-		subfolders = jsondata["folders"]
-		files = jsondata["files"]
-		#fill file table
-		for file in files:
-			fullpath = file["path"]
-			basename_no_extension = os.path.splitext(os.path.basename(fullpath))[0]
-			extension = os.path.splitext(fullpath)[1]
-			relpath = os.path.dirname(fullpath)
-			lastmodified = file["lastmodified"]
-			#persisted_file = self.modeldict["file"].create(fullpath = fullpath, name=basename_no_extension,extension=extension,relpath=relpath, lastmodified = lastmodified, folderid=parentID)
-			persisted_file = self.modeldict["file"].create(fullpath = fullpath, lastmodified = lastmodified)
-
-			tree = parseContentMistletoe(file["content"])
-			#textdict = json.dumps(parseText(tree))
-			imagelinks = json.dumps(list_of_imagelinks(json.loads(tree)))
-			textlinks = json.dumps(list_of_textlinks(json.loads(tree)))
-			textdict = ""
-			headers = json.dumps(list_of_headers(json.loads(tree)))
-			footnotes = json.dumps(list_of_footnotes(json.loads(tree)))
-			c = self.modeldict["content"].create(textdict = textdict, textlinks = textlinks,imagelinks = imagelinks,headers = headers, footnotes = footnotes, fileid=persisted_file.id)
-		#fill folder table
-		for subfolder in subfolders:
-			initProject(db,self.modeldict,subfolder,parentID)
-
-	def query(self,id):
-		with self.db.bind_ctx(models.modellist):
-			query = models.Content.select(models.Content.textdict,models.Content.textlinks,models.Content.imagelinks,models.Content.headers,models.Content.footnotes).join(models.File).where(models.File.id==id)
-			for row in query:
-				print(row.textlinks)
-				print("______________")
-				print(row.imagelinks)
-				print("___________")
-				print(row.headers)
-				print("___________")
-				print(row.footnotes)
-
-	def query2(self):
-		with self.db.bind_ctx(models.modellist):
-			query = (models.File
-					 .select(models.File.name,models.Content.imagelinks)
-					 .join(models.Content, JOIN.LEFT_OUTER)  # Joins user -> tweet.
-					 .group_by(models.File.name))
-
-			for row in query:
-				print(row.name)
-				print(row.content.imagelinks)
-
-				break
-				for footnote in json.loads(row.footnotes):
-					if footnote["name"] == "logo" and footnote["title"] is not "test":
-						print(row.file.name)
-
-	def query3(self):
-		with self.db.bind_ctx(models.modellist):
-			query = models.Content.select(models.Content.footnotes,models.Content.id).join(models.File)
-			for row in query:
-				for footnote in json.loads(row.footnotes):
-					if footnote["name"] == "logo" and footnote["title"] is not "test":
-						print(row.id)
-
-	def isOrphan(self,filename, extension):
-		with self.db.bind_ctx(models.modellist):
-			query = models.Content.select(models.Content.textlinks)
-			for row in query:
-				for element in json.loads(row.textlinks):
-					if element["target"] == filename + extension:
-						return False
-			else:
-				return True
 
 	def runSearchQuery(self,jsondata):
 		if "files" in jsondata and "element" in jsondata and "values" in jsondata:

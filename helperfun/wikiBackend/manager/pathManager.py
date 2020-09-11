@@ -88,6 +88,7 @@ class Filetype(Enum):
 
 
 def filetype(extension):
+	extension = extension.lower()
 	if extension == "md":
 		return Filetype.wikipage
 	elif extension in ["jpg","jpeg","png","gif"]:
@@ -95,31 +96,35 @@ def filetype(extension):
 	else:
 		return None
 
+def generateContent(full_path):
+	extension = extensionNoDot(full_path)
+	if filetype(extension) == Filetype.wikipage:
+		try:
+			return open(full_path, 'r', encoding='utf8').read()
+		except Exception as E:
+			return E
+	elif filetype(extension) == Filetype.image:
+		try:
+			with open(full_path, "rb") as imageFile:
+				return base64.b64encode(imageFile.read()).decode("utf-8")
+		except Exception as E:
+			return E
+	else:
+		return "BROKEN CONTENT"
+
 def generateFileData(full_path):
 	broken = False
 	d = {}
 	d["path"] = full_path
 	d["extension"] = extensionNoDot(full_path)
-
-
-	if filetype(d["extension"]) == Filetype.wikipage:
-		d["content"] = open(full_path, 'r', encoding='utf8').read()
-	elif filetype(d["extension"]) == Filetype.image:
-		with open(full_path, "rb") as imageFile:
-			strContent = base64.b64encode(imageFile.read())
-			d["content"] = strContent
-	else:
-		broken = True
-
+	d["content"] = generateContent(full_path)
 	d["lastmodified"] = os.path.getmtime(full_path)
-	if broken:
-		d["content"] = "BROKEN CONTENT"
 
 	return d
 
 def isFile(path,extensionConstraints=None):
 	if extensionConstraints:
-		return os.path.isfile(path) and extension(path) in extensionConstraints
+		return os.path.isfile(path) and extension(path).lower() in extensionConstraints
 	return os.path.isfile(path) 
 
 def path_to_dict(path):

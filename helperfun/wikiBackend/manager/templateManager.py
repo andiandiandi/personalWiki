@@ -1,6 +1,12 @@
 import os
 import datetime
 
+#usable variables:
+#$time
+#$datetime
+#$date
+#$wikipage
+
 def templatePathDict():
 	d = {}
 	currentDir = os.path.dirname(os.path.abspath(__file__))

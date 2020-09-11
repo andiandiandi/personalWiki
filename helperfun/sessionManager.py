@@ -179,6 +179,7 @@ class Connection:
 
 
 	def createWikilink(self,data):
+		print("EEE",data)
 		if self.isConnected():
 			#self.send("create_wikilink", json.dumps({"filename":filename,"srcPath":srcPath}))
 			self.send("create_wikilink", json.dumps(data))

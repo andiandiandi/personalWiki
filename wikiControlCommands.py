@@ -50,7 +50,7 @@ class DisconnectWikiCommand(sublime_plugin.TextCommand):
 		if sessionManager.hasProject(root_folder):
 			con = sessionManager.connection(root_folder)
 			con.disconnect()
-
+"""
 class SelContentCommand(sublime_plugin.TextCommand):
 	
 	def run(self,edit):
@@ -65,24 +65,7 @@ class SelFilesCommand(sublime_plugin.TextCommand):
 		con = sessionManager.connection(root_folder)
 		con.selFiles()
 
-class SearchQueryHeadersCommand(sublime_plugin.TextCommand):
-	
-	def run(self,edit):
-		root_folder = pathManager.root_folder()
-		con = sessionManager.connection(root_folder)
 
-		jsonsearch = {"files":{"negate":False,"values":["nicefile.md"]},"element":{"negate":False, "value":"headers"},"values":[{"attribute":"content","negate":False,"value":"header 222"}]}
-		jsonsearch2 = {"files":{"negate":False,"values":["subtestfile.md"]},"element":{"negate":False, "value":"headers"},"values":[]}
-
-		con.searchQuery(jsonsearch)
-
-class ClearWikiDatabaseCommand(sublime_plugin.TextCommand):
-
-	def run(self, edit):
-		root_folder = pathManager.root_folder()
-		con = sessionManager.connection(root_folder)
-
-		con.clearWikiDatabase()
 
 class PrintProjectStructureCommand(sublime_plugin.TextCommand):
 
@@ -90,6 +73,15 @@ class PrintProjectStructureCommand(sublime_plugin.TextCommand):
 		root_folder = pathManager.root_folder()
 		structure = pathManager.path_to_dict(root_folder)
 		print(structure)
+
+"""
+class ClearWikiDatabaseCommand(sublime_plugin.TextCommand):
+
+	def run(self, edit):
+		root_folder = pathManager.root_folder()
+		con = sessionManager.connection(root_folder)
+
+		con.clearWikiDatabase()
 
 
 class InitWikiCommand(sublime_plugin.TextCommand):
@@ -100,29 +92,13 @@ class InitWikiCommand(sublime_plugin.TextCommand):
 		root_folder = pathManager.root_folder()
 		if not root_folder:
 			return
-		print(root_folder)
 
 		if sessionManager.hasProject(root_folder):
 			sublime.error_message(root_folder + " already connected")
 			return
 		else:
-			
-
 			Connection = sessionManager.add(root_folder)
 			connected = Connection.connect()
 
-			#filelistener = projectListener.FileListener(root_folder)
-			#filelistener.start()
-
 			if not connected:
 				sublime.error_message("wiki server not running")
-
-
-def startServer():
-	DETACHED_PROCESS = 0x00000008
-
-	print(os.path.join(pathManager.path_to_helperfun(),"wikiBackend","socketServer.py"))
-	pid = subprocess.Popen([sys.executable, os.path.join(pathManager.path_to_helperfun(),"wikiBackend","socketServer.py")],
-                       creationflags=DETACHED_PROCESS).pid
-	print(pid)
-

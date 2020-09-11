@@ -45,9 +45,11 @@ class DragNDropManager():
 		self.__changeState(DragNDropState.ready)
 
 	def save_file(self,filename_to_copy,view_buffer):
-		with io.open(os.path.join(self.dir_to_save_to,filename_to_copy), "w",encoding="utf-8") as file:
+		targetpath = os.path.join(self.dir_to_save_to,filename_to_copy)
+		with io.open(targetpath, "w",encoding="utf-8") as file:
 			file.write(str(view_buffer))
 		self.ready()
+		return targetpath
 
 	def is_ready(self):
 		return self.state == DragNDropState.ready
@@ -71,12 +73,18 @@ class DragAndDropCommand(sublime_plugin.TextCommand):
 				view = sublime.active_window().find_open_file(filename_dropped_file)
 				view_buffer = view.substr(sublime.Region(0, view.size()))
 
-				basename_dropped_file = os.path.basename(filename_dropped_file)
+				dropped_file_name = view.file_name()
+				basename_dropped_file = os.path.basename(dropped_file_name)
+				print("BASE",dropped_file_name)
 				
-				DragNDropManager.save_file(basename_dropped_file,view_buffer)
+				targetpath = DragNDropManager.save_file(basename_dropped_file,view_buffer)
+				print("TARGETPATH",targetpath)
 				#close new view that opens when u drag a file into window
 				sublime.active_window().run_command('close_file')
-				sublime.active_window().active_view().run_command("insert_md_link",{"title":"test","link":basename_dropped_file})
+				current_filename = sublime.active_window().active_view().file_name()
+				print("CURRENT",current_filename)
+				sublime.active_window().active_view().run_command("create_wikilink",
+					{"files":[{"title":basename_dropped_file.split(".")[0],"link":os.path.relpath(targetpath,os.path.dirname(current_filename))}]})
 			
 
 class DragNDropListener(sublime_plugin.EventListener):
@@ -91,7 +99,7 @@ class DragNDropListener(sublime_plugin.EventListener):
 						return
 
 			#check if dropped file already exists in wikifolder of current page
-			if pathManager.file_exists(os.path.join(DragNDropManager.dir_to_save_to,os.path.basename(view.file_name()))):
+			if pathManager.exists(os.path.join(DragNDropManager.dir_to_save_to,os.path.basename(view.file_name()))):
 				sublime.active_window().run_command('close_file')
 				return
 

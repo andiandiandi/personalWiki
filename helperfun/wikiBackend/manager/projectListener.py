@@ -65,7 +65,7 @@ class FileEventHandler(PatternMatchingEventHandler):
 		return self.accessQueue("fetch")
 
 
-class FileListener:
+class FileSystemWatcher:
 
 	def __init__(self, wiki):
 		self.wiki = wiki
@@ -82,7 +82,7 @@ class FileListener:
 	def stop(self):
 		self.shouldRun = False
 		self.observer.join()
-		print("stopped filelistener")
+		print("stopped FileSystemWatcher")
 
 	def pause(self):
 		self.paused = True
@@ -97,7 +97,7 @@ class FileListener:
 		return self.shouldRun
 
 	def startObserver(self):
-		print("started filelistener")
+		print("started FileSystemWatcher")
 		self.observer.schedule(self.event_handler, self.wiki.root_folder, recursive=True)
 		self.observer.start()
 		try:
@@ -113,20 +113,20 @@ class FileListener:
 					if q:
 						for d in q:
 							if d["type"] == "modified" or d["type"] == "created" or d["type"] == "moved":
-								d["lastmodified"] = FileListener.readModifiedValue(d["srcPath"] if d["type"] != "moved" else d["destPath"])
+								d["lastmodified"] = FileSystemWatcher.readModifiedValue(d["srcPath"] if d["type"] != "moved" else d["destPath"])
 								if d["srcPath"] in modifiedBookkeeping and modifiedBookkeeping[d["srcPath"]] == d["lastmodified"]:
 									d["valid"] = False
 								else:
 									modifiedBookkeeping[d["srcPath"]] = d["lastmodified"]
 								if d["type"] != "moved":
-									d["content"] = FileListener.readFile(d["srcPath"])
+									d["content"] = pathManager.generateContent(d["srcPath"])
 								else:
 									if d["srcPath"] == d["destPath"]:
 										d["valid"] = False
 
 						modifiedBookkeeping.clear()
 						dict_wrapper = {"queue":[entry for entry in q]}
-						result = self.wiki.dbWrapper.filesChanged(dict_wrapper)
+						result = self.wiki.Indexer.filesChanged(dict_wrapper)
 						self.wiki.send("files_changed",str(result) + " | " + json.dumps(dict_wrapper))
 		except Exception as e:
 			self.wiki.send("error","exception in startObeserver:" + str(e) + " | " + type(e).__name__)
@@ -134,16 +134,8 @@ class FileListener:
 			self.wiki.dbStatus = sessionManager.DbStatus.connectionEstablished
 		self.observer.stop()
 		self.observer.join()
-		print("stopped filelistener")
+		print("stopped FileSystemWatcher")
 		
-
-	@staticmethod
-	def readFile(path):
-		try:
-			return open(path, 'r', encoding='utf8').read()
-		except Exception as e:
-			print("EXCEPTION in reafile projectlistener:", str(e))
-			return "Excp in readFile:" + str(e)
 
 	@staticmethod
 	def readModifiedValue(path):

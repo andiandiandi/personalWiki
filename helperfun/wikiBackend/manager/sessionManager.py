@@ -13,9 +13,6 @@ wikis = {}
 subscribers = {}
 _zombieCollector = None
 
-
-############## session related #######################
-
 def addSubscriber(socketSid,targetSid,eventname,socket,namespace,path):
 	if not socketSid in subscribers:
 		sub = Subscriber(socketSid,targetSid,eventname,socket,namespace,path=path)
@@ -107,22 +104,21 @@ class Wiki:
 	def __init__(self,sid,socket):
 		self.sid = sid
 		self.socket = socket
-		self.dbWrapper = None
+		self.Indexer = None
 		self.dbStatus = DbStatus.notConnected
 		self.root_folder = None
-		self.fileListener = None
+		self.FileSystemWatcher = None
 
 	def send(self,event,strdata):
 		self.socket.emit(event, strdata, room = self.sid)
 
 	def cleanup(self):
-		if self.fileListener:
-			self.fileListener.stop()
-		if self.dbWrapper:
-			self.dbWrapper.closeConnection()
-			del self.dbWrapper
+		if self.FileSystemWatcher:
+			self.FileSystemWatcher.stop()
+		if self.Indexer:
+			self.Indexer.closeConnection()
+			del self.Indexer
 
-	#returns false when something goes wrong
 	def initializeProject(self, root_folder):
 		if self.dbStatus == DbStatus.notConnected:
 			response = pathManager.checkupWikiconfig(root_folder)
@@ -132,14 +128,14 @@ class Wiki:
 
 		if self.dbStatus.value >= DbStatus.connectionEstablished.value:
 			self.root_folder = root_folder
-			if self.fileListener and self.fileListener.isRunning():
-				self.fileListener.pause()
-			response = self.dbWrapper.checkIndex()
-			if self.fileListener and self.fileListener.isPaused():
-				self.fileListener.resume()
+			if self.FileSystemWatcher and self.FileSystemWatcher.isRunning():
+				self.FileSystemWatcher.pause()
+			response = self.Indexer.checkIndex()
+			if self.FileSystemWatcher and self.FileSystemWatcher.isPaused():
+				self.FileSystemWatcher.resume()
 			if response["status"] != "exception":
 				self.dbStatus = DbStatus.projectInitialized
-				self.startFileListener()
+				self.startFileSystemWatcher()
 
 				return responseGenerator.createSuccessResponse("project initialized")
 			else:
@@ -149,8 +145,8 @@ class Wiki:
 
 	def connectToDatabase(self,root_folder):
 		self.root_folder = root_folder
-		self.dbWrapper = databaseManager.DbWrapper(self)
-		dbConnectionEstablished = self.dbWrapper.create_connection()
+		self.Indexer = databaseManager.Indexer(self)
+		dbConnectionEstablished = self.Indexer.create_connection()
 		
 		if dbConnectionEstablished:
 			self.dbStatus = DbStatus.connectionEstablished
@@ -158,11 +154,11 @@ class Wiki:
 
 		return responseGenerator.createExceptionResponse("could not connect to Database")
 
-	def startFileListener(self):
-		if self.fileListener and self.fileListener.isRunning():
+	def startFileSystemWatcher(self):
+		if self.FileSystemWatcher and self.FileSystemWatcher.isRunning():
 			return
-		self.filelistener = projectListener.FileListener(self)
-		self.filelistener.start()
+		self.FileSystemWatcher = projectListener.FileSystemWatcher(self)
+		self.FileSystemWatcher.start()
 
 	def send(self,event,jsondata):
 		self.socket.emit(event,jsondata,room=self.sid)

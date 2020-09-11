@@ -50,54 +50,6 @@ def search(files,rootelement,rootvalues,db):
 
 			return None
 
-
-
-
-def footnoteHandler(files,rootelement,values,db):
-	elemn = extn(rootelement)
-	if elemn:
-		return fetch_without_element("footnotes",db)
-	else:
-		filesv = extv(files)
-		filesn = extn(files)
-		with db.bind_ctx(models.modellist):
-			query = (models.File.select(elementmapping[rootelement["value"]],models.File.name,models.File.extension,models.File.relpath)
-										.join(models.Content).where(models.File.name.concat(models.File.extension).in_(filesv)))
-			return parseQuery(query,rootelement,rootvalues)
-
-
-def imagelinkHandler(files,rootelement,values,db):
-	elemn = extn(rootelement)
-	if elemn:
-		return fetch_without_element("imagelinks",db)
-	else:
-		filesv = extv(files)
-		filesn = extn(files)
-		with db.bind_ctx(models.modellist):
-			query = (models.File.select(elementmapping[rootelement["value"]],models.File.name,models.File.extension,models.File.relpath)
-										.join(models.Content).where(models.File.name.concat(models.File.extension).in_(filesv)))
-			return parseQuery(query,rootelement,rootvalues)
-
-
-def textlinkHandler(files,rootelement,rootvalues,db):
-	elemn = extn(rootelement)
-	if elemn:
-		return fetch_without_element("textlinks",db)
-	else:
-		filesv = extv(files)
-		filesn = extn(files)
-		with db.bind_ctx(models.modellist):
-			query = (models.File.select(elementmapping[rootelement["value"]],models.File.name,models.File.extension,models.File.relpath)
-										.join(models.Content).where(models.File.name.concat(models.File.extension).in_(filesv)))
-			return parseQuery(query,rootelement,rootvalues)
-
-#query: {"files":{"negate":False,"values":["newfile.md"]},"element":{"negate":False, "value":"headers"},"values":[{"attribute":"content","negate":False,"value":"header2"}]}
-"""header
-content
-level
-
-"""
-
 def parseQuery(query,rootelement,rootvalues):
 	debug = False
 	toret = []
@@ -199,6 +151,16 @@ def fetch_without_element(elementname,filesv,filesn,db):
 			if toret:
 				return toret
 			return None
+
+def isOrphan(self,filename, extension):
+		with self.db.bind_ctx(models.modellist):
+			query = models.Content.select(models.Content.textlinks)
+			for row in query:
+				for element in json.loads(row.textlinks):
+					if element["target"] == filename + extension:
+						return False
+			else:
+				return True
 
 def createFile(name,extension,relpath):
 	return {"filepath":os.path.join(relpath,name+extension),"lines":[]}
