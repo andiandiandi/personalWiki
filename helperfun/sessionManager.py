@@ -9,6 +9,7 @@ import time
 import threading
 import json
 import os
+import datetime
 
 _CONNECTIONSTRING = "http://127.0.0.1:9000"
 
@@ -78,14 +79,18 @@ class Connection:
 		self.socket.on("files_changed", self.filesChangedResponse)
 		self.socket.on("clear_db", self.clearWikiDatabaseResponse)
 		self.socket.on("open_browser", self.openBrowserResponse)
-		self.socket.on("sel_content",self.selContentResponse)
-		self.socket.on("sel_files",self.selFilesResponse)
 		self.socket.on("word_count", self.wordCountResponse)
 		self.socket.on("create_wikilink", self.createWikilinkResponse)
 		self.socket.on("saved_search_query",self.savedSearchQueryResponse)
 		self.socket.on("search_query", self.searchQueryResponse)
+
+
+		self.socket.on("sel_content",self.selContentResponse)
+		self.socket.on("sel_files",self.selFilesResponse)
 		self.lock = threading.Lock()
 		self.wikiState = WikiState.disconnected
+		self.start = 0
+		self.end = 0
 
 
 	def sid(self):
@@ -162,11 +167,16 @@ class Connection:
 	def clearWikiDatabaseResponse(self,jsondata):
 		print(jsondata)
 
-	def openBrowserResponse(self,pathStr):
-		if type(pathStr) == str:
-			localApi.runWindowCommand(self.root_folder,"render_wikipage",{"path":pathStr})
+	def openBrowserResponse(self, pathStr):
+		localApi.runWindowCommand(self.root_folder,
+								  "render_wikipage",
+								  {"path":pathStr})
 
 	def searchQueryResponse(self, jsondata):
+		self.end = datetime.datetime.now()
+		k = self.end - self.start
+		print("time",self.end-self.start)
+		print("timeSeconds",k.total_seconds())
 		localApi.runWindowCommand(self.root_folder,"show_search_result",args={"queryResult":jsondata})
 
 	def isConnected(self):
@@ -225,6 +235,7 @@ class Connection:
 
 	def searchQuery(self,searchQuery):
 		print(searchQuery)
+		self.start = datetime.datetime.now()
 		if self.isConnected():
 			self.send("search_query", searchQuery)
 		else:

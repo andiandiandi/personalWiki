@@ -82,29 +82,34 @@
 				//resolveRelativeImages()
 			  	attachClicklistenerToHrefs();
 			};
-			var ioSocket = io("http://localhost:9000/events");
-			ioSocket.on("connect",function(msg){
-				ioSocket.emit("subscribe",JSON.stringify([{"eventname":"render_wikipage","targetsid":sid},{"eventname":"update_wikipage","targetsid":sid,"path":path},{"eventname":"rename_wikipage","targetsid":sid,"path":path}]))
-			})
-			ioSocket.on('render_wikipage', function(path) {
-						var url = absoluteUrl(path)
-						if(window.location.href !== url){
-							window.location.href = url
-					}
-					return false
-	           });
-			ioSocket.on('update_wikipage', function(notUsedFlag) {
-					window.location.reload()
-					return false
-				});
-			ioSocket.on('rename_wikipage', function(destPath) {
-					absUrl = absoluteUrl(destPath)
-					window.location.href = absUrl
-					return false
-				});
-			ioSocket.on("disconnect",function(msg){
-				return false
-			})
+
+var ioSocket = io("http://localhost:9000/events");
+ioSocket.on("connect",function(msg){
+ioSocket.emit("subscribe",JSON.stringify([
+	{"eventname":"render_wikipage","targetsid":sid},
+    {"eventname":"update_wikipage","targetsid":sid,"path":path},
+    {"eventname":"rename_wikipage","targetsid":sid,"path":path}]))
+})
+ioSocket.on('render_wikipage', function(path) {
+		var url = absoluteUrl(path)
+		if(window.location.href !== url){
+			window.location.href = url
+	}
+	return false
+});
+ioSocket.on('update_wikipage', function(notUsedFlag) {
+	window.location.reload()
+	return false
+});
+ioSocket.on('rename_wikipage', function(destPath) {
+	absUrl = absoluteUrl(destPath)
+	window.location.href = absUrl
+	return false
+});
+ioSocket.on("disconnect",function(msg){
+return false
+})
+			
 		</script>
 	</body>
 </html>

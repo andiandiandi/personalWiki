@@ -1,8 +1,6 @@
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO
 from flask import render_template
-from flask import send_file
-import io
 
 from manager import sessionManager
 from manager import pathManager
