@@ -30,15 +30,17 @@ d = {
 socket = Socket()
 image = "C:\\Users\\Andre\\Desktop\\nowiki\\testfolder\\ddd.md"
 
-onefilewiki = "C:\\Users\\Andre\\Desktop\\onefilewiki"
+onefilewiki = "C:\\Users\\Andre\\Desktop\\nowiki"
 
-filename = "C:\\Users\\Andre\\Desktop\\onefilewiki\\subfolder\\ref.md"
+filename = "C:\\Users\\Andre\\Desktop\\nowiki\\testfolder\\ff.md"
 filename2 = "C:\\Users\\Andre\\Desktop\\onefilewiki\\subfolder\\renamedpage.md"
 
 socketFakeServer.on_initializeProject(123,onefilewiki,socket)
 socketFakeServer.on_clearDB(123,onefilewiki)
 socketFakeServer.on_initializeProject(123,onefilewiki,socket)
-socketFakeServer.on_selImages(123,"")
+socketFakeServer.on_wordCount(123,filename)
+
+
 socketFakeServer.on_disconnect(123)
 
 """

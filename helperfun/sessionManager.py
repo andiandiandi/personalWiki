@@ -153,9 +153,11 @@ class Connection:
 		localApi.runWindowCommand(self.root_folder,"saved_search_query",args={"d":data})
 
 	def selContentResponse(self,data):
+		print("selected content")
 		print(data)
 
 	def selFilesResponse(self,data):
+		print("selected files")
 		print(data)
 
 	def wordCountResponse(self,data):
@@ -189,7 +191,6 @@ class Connection:
 
 
 	def createWikilink(self,data):
-		print("EEE",data)
 		if self.isConnected():
 			#self.send("create_wikilink", json.dumps({"filename":filename,"srcPath":srcPath}))
 			self.send("create_wikilink", json.dumps(data))

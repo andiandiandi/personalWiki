@@ -3,6 +3,7 @@ from flask_socketio import SocketIO
 from flask import render_template
 
 from manager import sessionManager
+from manager import wikiManager
 from manager import pathManager
 #app.config['SECRET_KEY'] = 'secret!'
 import json
@@ -39,7 +40,7 @@ def get(sid):
 	if wiki:
 		return wiki
 	else:
-		error("you have to connect to server first", sid)
+		error("initialize Project first", sid)
 		return None
 
 @socketio.on('initialize_project')
@@ -56,38 +57,36 @@ def on_initializeProject(root_folder):
 	elif response["status"] == "success":
 		socketio.emit("project_initialized","successfully initialized project", room = request.sid)
 	else:
-		socketio.emit("project_initialized","uninteded behaviour while init project", room = request.sid)
+		socketio.emit("project_initialized","uninteded behaviour while initializing project", room = request.sid)
 
 @socketio.on('search_query')
 def on_searchQuery(jsonStr):
 	wiki = get(request.sid)
-	if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
-		response = wiki.Indexer.runRealSearchQuery(jsonStr)
-		if response["status"] == "exception":
-			error(response["response"],request.sid)
-		else:
-			socketio.emit("search_query", json.dumps(response["response"]), room = request.sid)
-	else:
-		error("you have to initialize the database first", request.sid)
+	if wiki:
+		if wiki.dbStatus == wikiManager.DbStatus.projectInitialized:
+			response = wiki.runRealSearchQuery(jsonStr)
+			if response["status"] == "exception":
+				error(response["response"],request.sid)
+			else:
+				socketio.emit("search_query", json.dumps(response["response"]), room = request.sid)
 
 @socketio.on('saved_search_query')
 def on_listSearchQuery():
 	wiki = get(request.sid)
-	if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
-		response = wiki.Indexer.listSearchQuery()
-		if response["status"] == "exception":
-			error(response["response"],request.sid)
-		else:
-			socketio.emit("saved_search_query", json.dumps(response["response"]), room = request.sid)
-	else:
-		error("you have to initialize the database first", request.sid)
+	if wiki:
+		if wiki.dbStatus == wikiManager.DbStatus.projectInitialized:
+			response = wiki.listSearchQuery()
+			if response["status"] == "exception":
+				error(response["response"],request.sid)
+			else:
+				socketio.emit("saved_search_query", json.dumps(response["response"]), room = request.sid)
 
 
 @socketio.on('clear_db')
 def on_clearDB(jsonStr):
 	wiki = get(request.sid)
 	if wiki:
-		if wiki.dbStatus == sessionManager.DbStatus.notConnected:
+		if wiki.dbStatus == wikiManager.DbStatus.notConnected:
 			realJson = json.loads(jsonStr)
 			root_folder = realJson["root_folder"]
 			connected = wiki.connectToDatabase(root_folder)
@@ -95,10 +94,8 @@ def on_clearDB(jsonStr):
 				error("could not connect to database",request.sid)
 				return
 				
-		result = wiki.Indexer.clearDatabase()
+		result = wiki.clearDatabase()
 		socketio.emit("clear_db", json.dumps(result), room = request.sid)
-	else:
-		error("initialize project first", request.sid)
 
 def createContainer():
 	return '<div class="foldercontainer">'
@@ -141,7 +138,7 @@ def generateFullFileHierarchy(path):
 def fileHierarchy(sid):
 	wiki = get(sid)
 	if wiki:
-		if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
+		if wiki.dbStatus == wikiManager.DbStatus.projectInitialized:
 			return render_template('fileHierarchy.html',
 				fileHierarchy=generateFullFileHierarchy,
 				root_folder=wiki.root_folder,
@@ -155,8 +152,8 @@ def fileHierarchy(sid):
 def wikipage(sid,path):
 	wiki = get(sid)
 	if wiki:
-		if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
-			wikipageHtml = wiki.Indexer.wikipageHtml(path)
+		if wiki.dbStatus == wikiManager.DbStatus.projectInitialized:
+			wikipageHtml = wiki.wikipageHtml(path)
 			dirpath = os.path.dirname(path)
 			return render_template('wikipage.html',
 				root_folder=wiki.root_folder,
@@ -193,45 +190,47 @@ def subscribeFilesChanged(data):
 @socketio.on('sel_content')
 def on_selContent(jsonStr):
 	wiki = get(request.sid)
-	content = wiki.Indexer.selContent()
+	content = wiki.databaseWrapper.selContent()
 	socketio.emit("sel_content",str(content),room=request.sid)
 
 @socketio.on('sel_files')
 def on_selFiles(jsonStr):
 	wiki = get(request.sid)
-	content = wiki.Indexer.selFilesDEBUG()
-	socketio.emit("sel_files",str(content),room=runRealSearchQueryest.sid)
+	#content = wiki.databaseWrapper.selFilesDEBUG()
+	content = wiki.databaseWrapper.selContent()
+	socketio.emit("sel_files",str(content),room=request.sid)
 
 @socketio.on('word_count')
 def on_wordCount(targetPath):
 	wiki = get(request.sid)
-	if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
-		result = wiki.Indexer.wordCount(path=targetPath) if len(targetPath)>1 else wiki.Indexer.wordCount()
-		socketio.emit("word_count", json.dumps(result), room = request.sid)
-	else:
-		error("you have to initialize the project first", request.sid)
+	if wiki:
+		if wiki.dbStatus == wikiManager.DbStatus.projectInitialized:
+			result = wiki.wordCount(path=targetPath) if len(targetPath)>1 else wiki.wordCount()
+			socketio.emit("word_count", json.dumps(result), room = request.sid)
+		else:
+			error("initialize Project first", request.sid)
 
 @socketio.on('create_wikilink')
 def on_createWikilink(jsonstr):
 	try:
 		d = json.loads(jsonstr)
 		wiki = get(request.sid)
-		if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
+		if wiki.dbStatus == wikiManager.DbStatus.projectInitialized:
 			if d["type"] == "toggle":
 				word = d["word"]
 				srcPath = d["srcPath"]
-				result = wiki.Indexer.generateWikilinkData(word,srcPath)
+				result = wiki.generateWikilinkData(word,srcPath)
 				socketio.emit("create_wikilink", json.dumps(result["response"]), room = request.sid)
 			elif d["type"] == "imagelink":
 				srcPath = d["srcPath"]
-				result = wiki.Indexer.generateImagelinkData(srcPath)
+				result = wiki.generateImagelinkData(srcPath)
 				socketio.emit("create_wikilink", json.dumps(result["response"]), room = request.sid)
 			elif d["type"] == "create":
 				filename = d["filename"]
 				template = d["template"]
 				folder = d["folder"]
 				srcPath = d["srcPath"]
-				result = wiki.Indexer.createWikilink(template,folder,filename,srcPath)
+				result = wiki.createWikilink(template,folder,filename,srcPath)
 				if result["status"] == "exception":
 					error(result["response"], request.sid)
 				else:
@@ -251,15 +250,13 @@ def on_renderWikipage(pathStr):
 		return
 
 	wiki = get(request.sid)
-	if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
-		file = wiki.Indexer.getFile(pathStr)
-		if file:
-			notified = sessionManager.notifySubscribers("render_wikipage",request.sid,jsondata=pathStr)
-			if not notified:
-				socketio.emit("open_browser", pathStr, room = request.sid)
-	else:
-		error("you have to initialize the project first", request.sid)
-
+	if wiki:
+		if wiki.dbStatus == wikiManager.DbStatus.projectInitialized:
+			file = wiki.databaseWrapper.getFile(pathStr)
+			if file:
+				notified = sessionManager.notifySubscribers("render_wikipage",request.sid,jsondata=pathStr)
+				if not notified:
+					socketio.emit("open_browser", pathStr, room = request.sid)
 
 
 socketio.run(app, host="127.0.0.1", port=9000)

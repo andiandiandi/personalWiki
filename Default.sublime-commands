@@ -1,5 +1,4 @@
 [
-
     {
         "caption": "connect to wiki server",
         "command": "init_wiki"
@@ -29,11 +28,11 @@
         "command": "render_wikipage"
     },
      {
-        "caption": "sel content",
+        "caption": "select content",
         "command": "sel_content"
     },
     {
-        "caption": "sel files",
+        "caption": "select files",
         "command": "sel_files"
     }
 ]

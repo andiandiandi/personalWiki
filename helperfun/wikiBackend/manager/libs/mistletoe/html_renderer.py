@@ -88,9 +88,6 @@ class HTMLRenderer(BaseRenderer):
 				token.src = token.src[1:]
 			if token.src in self.base64PathDict:
 				token.src = self.base64PathDict[token.src]
-				print("HERE")
-
-		print("TOKENSRC",token.src)
 
 		return template.format(token.src, self.render_to_plain(token), title)
 
@@ -102,17 +99,13 @@ class HTMLRenderer(BaseRenderer):
 		wikilink = ''
 		if self.path:
 			if not re.match(urlRegex,target):
-				print("PATH",self.path)
 				dirname = os.path.dirname(self.path)
 				dirname = dirname.replace("\\","/")
-				print("DIRNAME",dirname)
 				if target.startswith("/"):
 					target = target[1:]
 				target = urllib.parse.unquote(target)
 				unresolved_rel_path = os.path.join(dirname,target)
-				print("UNRES",unresolved_rel_path)
 				normpath = os.path.normpath(unresolved_rel_path)
-				print(normpath)
 				wikilink = ' data-wikilink="{}"'.format(normpath)
 
 		if token.title:

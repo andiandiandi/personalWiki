@@ -67,8 +67,10 @@ class FileEventHandler(PatternMatchingEventHandler):
 
 class FileSystemWatcher:
 
-	def __init__(self, wiki):
-		self.wiki = wiki
+	def __init__(self, callbackFileschanged, callbackError, root_folder):
+		self.callbackFileschanged = callbackFileschanged
+		self.callbackError = callbackError
+		self.root_folder = root_folder
 		self.shouldRun = False
 		self.paused = False
 		self.event_handler = FileEventHandler(patterns=['*'+ e for e in pathManager.supportedExtensions()],ignore_directories=True)
@@ -81,8 +83,7 @@ class FileSystemWatcher:
 
 	def stop(self):
 		self.shouldRun = False
-		self.observer.join()
-		print("stopped FileSystemWatcher")
+		print("shouldRun set=False at FileSystemWatcher")
 
 	def pause(self):
 		self.paused = True
@@ -98,7 +99,7 @@ class FileSystemWatcher:
 
 	def startObserver(self):
 		print("started FileSystemWatcher")
-		self.observer.schedule(self.event_handler, self.wiki.root_folder, recursive=True)
+		self.observer.schedule(self.event_handler, self.root_folder, recursive=True)
 		self.observer.start()
 		try:
 			while self.shouldRun:
@@ -109,29 +110,26 @@ class FileSystemWatcher:
 					continue
 				q = self.event_handler.fetch()
 				modifiedBookkeeping = {}
-				if self.wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
-					if q:
-						for d in q:
-							if d["type"] == "modified" or d["type"] == "created" or d["type"] == "moved":
-								d["lastmodified"] = FileSystemWatcher.readModifiedValue(d["srcPath"] if d["type"] != "moved" else d["destPath"])
-								if d["srcPath"] in modifiedBookkeeping and modifiedBookkeeping[d["srcPath"]] == d["lastmodified"]:
+				if q:
+					for d in q:
+						if d["type"] == "modified" or d["type"] == "created" or d["type"] == "moved":
+							d["lastmodified"] = FileSystemWatcher.readModifiedValue(d["srcPath"] if d["type"] != "moved" else d["destPath"])
+							if d["srcPath"] in modifiedBookkeeping and modifiedBookkeeping[d["srcPath"]] == d["lastmodified"]:
+								d["valid"] = False
+							else:
+								modifiedBookkeeping[d["srcPath"]] = d["lastmodified"]
+							if d["type"] != "moved":
+								d["content"] = pathManager.generateContent(d["srcPath"])
+							else:
+								if d["srcPath"] == d["destPath"]:
 									d["valid"] = False
-								else:
-									modifiedBookkeeping[d["srcPath"]] = d["lastmodified"]
-								if d["type"] != "moved":
-									d["content"] = pathManager.generateContent(d["srcPath"])
-								else:
-									if d["srcPath"] == d["destPath"]:
-										d["valid"] = False
 
-						modifiedBookkeeping.clear()
-						dict_wrapper = {"queue":[entry for entry in q]}
-						result = self.wiki.Indexer.filesChanged(dict_wrapper)
-						self.wiki.send("files_changed",str(result) + " | " + json.dumps(dict_wrapper))
+					modifiedBookkeeping.clear()
+					dict_wrapper = {"queue":[entry for entry in q]}
+					result = self.callbackFileschanged(dict_wrapper)
 		except Exception as e:
-			self.wiki.send("error","exception in startObeserver:" + str(e) + " | " + type(e).__name__)
 			self.observer.stop()
-			self.wiki.dbStatus = sessionManager.DbStatus.connectionEstablished
+			self.callbackError("FilesystemWatcher stopped: " + str(e))
 		self.observer.stop()
 		self.observer.join()
 		print("stopped FileSystemWatcher")

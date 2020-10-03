@@ -42,9 +42,6 @@ def search(files,rootelement,rootvalues,db):
 				else:
 					query = (models.File.select(elementmapping[rootelement["value"]],models.File.name,models.File.extension,models.File.relpath)
 										.join(models.Content))
-			for x in query:
-				print(x.name)
-
 			if query:
 				return parseQuery(query,rootelement,rootvalues)
 

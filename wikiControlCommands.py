@@ -50,7 +50,6 @@ class DisconnectWikiCommand(sublime_plugin.TextCommand):
 		if sessionManager.hasProject(root_folder):
 			con = sessionManager.connection(root_folder)
 			con.disconnect()
-"""
 class SelContentCommand(sublime_plugin.TextCommand):
 	
 	def run(self,edit):
@@ -66,7 +65,6 @@ class SelFilesCommand(sublime_plugin.TextCommand):
 		con.selFiles()
 
 
-
 class PrintProjectStructureCommand(sublime_plugin.TextCommand):
 
 	def run(self, edit):
@@ -74,7 +72,6 @@ class PrintProjectStructureCommand(sublime_plugin.TextCommand):
 		structure = pathManager.path_to_dict(root_folder)
 		print(structure)
 
-"""
 class ClearWikiDatabaseCommand(sublime_plugin.TextCommand):
 
 	def run(self, edit):

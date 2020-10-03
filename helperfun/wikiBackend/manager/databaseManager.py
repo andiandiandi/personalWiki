@@ -8,41 +8,30 @@ import json
 import time
 import re
 import threading
-from threading import Lock
 
-from . import searchDataParser
 from . import responseGenerator
 from . import sessionManager
 from . import pathManager
 from .pathManager import Filetype
-from . import wordCount
-from . import searchQueryManager
-from . import templateManager
 from . import multiPurposeParser
+from . import projectListener
+from . import wordCount
 
-urlRegex = re.compile(
-		r'^(?:http|ftp)s?://' # http:// or https://
-		r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|' #domain...
-		r'localhost|' #localhost...
-		r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})' # ...or ip
-		r'(?::\d+)?' # optional port
-		r'(?:/?|[/?]\S+)$', re.IGNORECASE)
-
-class Indexer:
-	def __init__(self,wiki):
+class DatabaseWrapper:
+	def __init__(self, root_folder, sid, callbackError):
 		self.db = None
-		self.wiki = wiki
+		self.root_folder = root_folder
+		self.sid = sid
+		self.callbackError = callbackError
 		self.modeldict = {}
 		self.modeldict["file"] = models.File
 		self.modeldict["content"] = models.Content
 		self.modeldict["image"] = models.Image
 		self.modeldict["searchquery"] = models.SearchQuery
 
-		self.lock = Lock()
-
 	def create_connection(self):
 		try:
-			self.db = SqliteExtDatabase(os.path.join(self.wiki.root_folder,"wikiconfig","wiki.db"))
+			self.db = SqliteExtDatabase(os.path.join(self.root_folder,"wikiconfig","wiki.db"), pragmas={'foreign_keys': 1})
 			self.db.connect()
 		except Exception as e:
 			print("exception while connint to db:",str(e))
@@ -59,187 +48,6 @@ class Indexer:
 
 	def hasConnection(self):
 		return bool(self.db)
-
-	def runRealSearchQuery(self,queryString):
-		response = searchQueryManager.parseQuery(queryString)
-		if response["status"] == "exception":
-			return response
-		elif response["status"] == "success":
-			parsedQueryD = json.loads(response["response"])
-			if "searchhistory" in parsedQueryD and parsedQueryD["searchhistory"]:
-				self.addSearchQuery(parsedQueryD["searchhistory"])				
-			if parsedQueryD["type"] == "delete":
-				return self.deleteSavedQuery(parsedQueryD["query"])
-			if parsedQueryD["type"] == "tagsearch":
-				jsondataTagQuery = searchQueryManager.jsondataTagQuery(parsedQueryD["phrase"],parsedQueryD["args"])
-				return self.runSearchQuery(jsondataTagQuery)
-			elif parsedQueryD["type"] == "fulltextsearch":
-				jsondataFulltextQuery = searchQueryManager.jsondataFulltextQuery(parsedQueryD["phrase"],parsedQueryD["args"])
-				return self.searchFulltext(jsondataFulltextQuery)
-		else:
-			return response
-
-	def deleteSavedQuery(self,queryString):
-		with self.db.bind_ctx(models.modellist):
-			searchQuery = self.getSearchQuery(queryString)
-			if not searchQuery:
-				return responseGenerator.createExceptionResponse("could not delete queryString: " + str(queryString) + " | " + "query-string not found in database")
-			else:
-				try:
-					searchQuery.delete_instance()
-					return responseGenerator.createSuccessResponse({"type":"deleted", "data":str(queryString)})
-				except Exception as E:
-					return responseGenerator.createExceptionResponse("could not remove search-query: " + str(queryString) + " | " + str(type(E).__name__))
-
-	def wordCount(self, path = None):
-		try:
-			if path:
-				file = self.getFile(path)
-				if file:
-					content = self.getContent(file.id)
-					if content:
-						textString = content.rawString
-						wordsChars = wordCount.countWordsCharReadtime(textString)		
-						return wordsChars
-
-					return responseGenerator.createExceptionResponse("Could not find content for wordCount: " + path)
-				return responseGenerator.createExceptionResponse("Could not find file for wordCount: " + path)
-
-			else:
-				with self.db.bind_ctx(models.modellist):
-					query = models.File.select(models.Content.wordsCharsReadtime).join(models.Content)
-					words = 0
-					chars = 0
-					readtimeInSeconds = 0
-					for row in query:
-						wordsCharsReadtime = json.loads(row.content.wordsCharsReadtime)
-						words += wordsCharsReadtime["words"]
-						chars += wordsCharsReadtime["chars"]
-						readtimeInSeconds += wordsCharsReadtime["readtimeInSeconds"]
-
-					return {"words":words,"chars":chars,"readtimeInSeconds":readtimeInSeconds}
-						
-		except Exception as E:
-			return responseGenerator.createExceptionResponse("could not count words,chars,readtime: " + (path if path else "query on whole notebook") + " | " + str(E) + " | " + type(E).__name__)
-
-	def generateWikilinkData(self,filename,srcPath):
-		with self.db.bind_ctx(models.modellist):
-
-			def listFiles(fileQuery):
-				l = []
-				for file in fileQuery:
-					d = {"title":filename,"link":os.path.relpath(file.fullpath,os.path.dirname(srcPath)),"tooltip":file.fullpath}
-					l.append(d)		
-				return l
-
-			fileQuery = models.File.select(models.File.fullpath).where(models.File.name == filename)
-			l = listFiles(fileQuery)
-			d = {}
-			if l:
-				d["type"] = "directlink"
-				d["files"] = l		
-			if not l:
-				d["type"] = "create"
-				d["filename"] = filename
-				templatePathDict = templateManager.templatePathDict()
-				d["templates"] = list(templatePathDict.keys()) if templatePathDict else []
-				d["folders"] = pathManager.listFolders(self.wiki.root_folder)
-
-			return responseGenerator.createSuccessResponse(d)
-
-	def createWikilink(self,template,folder,filename,srcPath):
-		if folder.startswith(self.wiki.root_folder):
-			if not pathManager.exists(folder):
-				response = pathManager.createFolder(folder)
-				if response["status"] == "exception":
-					return response
-
-			realFilename = os.path.join(folder,filename + ".md")
-			response = None
-			if template:
-				templateContent = templateManager.getContent(template,filename)
-				response = pathManager.dump(templateContent if templateContent else "",realFilename)
-			else:
-				response = pathManager.dump("",realFilename)
-			if response["status"] == "exception":
-				return response
-
-			d = {}
-			d["type"] = "directlink"
-			d["files"] = [{"title":filename,"link":os.path.relpath(realFilename,os.path.dirname(srcPath)),"tooltip":realFilename}]
-
-			return responseGenerator.createSuccessResponse(d)
-
-		else:
-			return responseGenerator.createExceptionResponse("could not create Wikilink: " + filename + " | " + "folder not in notebook")
-
-	def generateImagelinkData(self,srcPath):
-		with self.db.bind_ctx(models.modellist):
-			imageQuery = models.File.select(models.File.fullpath).join(models.Image).where(models.File.id==models.Image.fileid)
-			l = []
-			for file in imageQuery:
-				l.append({"title":"","link":os.path.relpath(file.fullpath,os.path.dirname(srcPath)),"tooltip":file.fullpath})
-
-			d = {}
-			if l:
-				d["type"] = "directimagelink"
-				d["files"] = l		
-			if not l:
-				d["type"] = "createimagelink"
-
-			return responseGenerator.createSuccessResponse(d)
-
-	def checkIndex(self):
-		json_project_structure = pathManager.path_to_dict(self.wiki.root_folder)
-		if not json_project_structure:
-			return false
-
-		filesJson = multiPurposeParser.extractFiles(json_project_structure)
-
-		try:
-			#self.dropTables()
-			self.createTables()
-			dbFiles = self.selFiles()
-			for dbFile in list(dbFiles):
-				for file in list(filesJson):
-					fullPath = file["path"]
-					if dbFile.fullpath == fullPath:
-						upToDate = file["lastmodified"] == dbFile.lastmodified
-						if not upToDate:
-							response = self.updateFile(file["path"],file["content"],file["lastmodified"],file["extension"])
-							if response["status"] == "exception":
-								return response
-							#print("updated",file["path"])
-							#print(models.Content.get(models.Content.filepath == dbFile.fullpath).headers)
-						else:
-							#print("file is up to date",file["path"])
-							#print(models.Content.get(models.Content.filepath == dbFile.fullpath).headers)
-							pass
-
-						filesJson.remove(file)
-						dbFiles.remove(dbFile)
-						break
-				
-
-			#leftovers in db
-			if dbFiles:
-				for f in dbFiles:
-					#print("deleting leftover",f.fullpath)
-					response = self.deleteFile(f.fullpath)
-					if response["status"] == "exception":
-						return response
-
-			if filesJson:
-				for f in filesJson:
-					print("inserting new file",f["path"])
-					response = self.insertFile(f["path"],f["content"],f["lastmodified"],f["extension"])
-					if response["status"] == "exception":
-						return response
-
-			return responseGenerator.createSuccessResponse("indexed files")
-
-		except Exception as E:
-			return responseGenerator.createExceptionResponse("could not index files:" + str(E))
 
 	def deleteFile(self,fullpath):
 		with self.db.bind_ctx(models.modellist):
@@ -268,50 +76,6 @@ class Indexer:
 
 			return False
 
-	def filesChanged(self,queueDict):
-		with self.lock:
-			if not self.tablesExist():
-				return responseGenerator.createExceptionResponse("could not index: tables do not exist.. initialize db first")
-
-			q = queueDict["queue"]
-			filesChangedEvent = False
-			updateWikipageEvent = False
-			updatedPaths = []
-
-			for entry in q:
-				if not entry["valid"]:
-					continue
-				response = None
-				if entry["type"] == "modified":
-					response = self.updateFile(entry["srcPath"],entry["content"],entry["lastmodified"],pathManager.extensionNoDot(entry["srcPath"]))
-					updatedPaths.append(entry["srcPath"])
-					updateWikipageEvent = True
-
-				elif entry["type"] == "created":
-					response = self.insertFile(entry["srcPath"],entry["content"],entry["lastmodified"],pathManager.extensionNoDot(entry["srcPath"]))
-					filesChangedEvent = True
-
-				elif entry["type"] == "deleted":
-					response = self.deleteFile(entry["srcPath"])
-					filesChangedEvent = True
-
-				elif entry["type"] == "moved":
-					response = self.moveFile(entry["srcPath"],entry["destPath"],entry["lastmodified"])
-					filesChangedEvent = True
-				else:
-					return responseGenerator.createExceptionResponse("files_changed event data is corrupted")
-
-				if response["status"] == "exception":
-					return response
-
-			if filesChangedEvent:
-				sessionManager.notifySubscribers("files_changed",self.wiki.sid)
-			if updateWikipageEvent:
-				for path in updatedPaths:
-					sessionManager.notifySubscribers("update_wikipage",self.wiki.sid,path=path)
-
-			return responseGenerator.createSuccessResponse("processed files_changed event")
-
 	def moveFile(self, srcPath, destPath, lastmodified):
 		with self.db.bind_ctx(models.modellist):
 			try:
@@ -331,7 +95,7 @@ class Indexer:
 				if os.path.dirname(srcPath) == os.path.dirname(destPath):
 					response = self.fileRenamedTrigger(srcPath,destPath,pathManager.extensionNoDot(srcPath))
 					
-					sessionManager.notifySubscribers("rename_wikipage",self.wiki.sid,path=srcPath,jsondata=destPath)
+					sessionManager.notifySubscribers("rename_wikipage",self.sid,path=srcPath,jsondata=destPath)
 					if response["status"] == "exception":
 						return response
 
@@ -342,13 +106,14 @@ class Indexer:
 			except Exception as E:
 				return responseGenerator.createExceptionResponse("could not move file: " + srcPath + " to " + destPath + " | " + str(E))
 
-	def fileRenamedTrigger(self,srcPath,destPath,mimetype):
+	def fileRenamedTrigger(self, srcPath, destPath, mimetype):
 		with self.db.bind_ctx(models.modellist):
 			try:
 				if pathManager.filetype(mimetype) == Filetype.wikipage:
 					#query = (models.Content.select(models.Content.textlinks,models.Content.fileid,models.Content.rawString).join(models.File).where(models.Content.hasWikilink(srcPath,models.File.fullpath)))
 					l = []
 					pathContentL = {}
+
 					query = (models.File.select(models.Content.textlinks,models.Content.rawString,models.File.fullpath).join(models.Content))
 					for file in query:
 						try:
@@ -366,7 +131,6 @@ class Indexer:
 					for path, rawContent in pathContentL.items():
 						pathContentL[path] = rawContent.replace(replacee,toreplace)
 
-					print(pathContentL)
 					t1 = threading.Thread(target=pathManager.writeFiles, args=(pathContentL,))
 					t1.start()
 					t1.join()
@@ -391,7 +155,6 @@ class Indexer:
 			fileupdateQuery = models.File.update(lastmodified = lastmodified).where(models.File.fullpath == path)
 			rows = fileupdateQuery.execute()
 			if rows > 0:
-
 				response = None
 				if pathManager.filetype(mimetype) == Filetype.wikipage:
 					response = self.updateWikipage(fileInDb.id,content)
@@ -492,37 +255,6 @@ class Indexer:
 
 			except Exception as E:
 				return responseGenerator.createExceptionResponse("exception while inserting wikipage: " + str(E))
-				
-	def searchFulltext(self,jsondataFulltextQuery):
-	#def searchFulltext(self,phrase,linespan=0,filepath=None):
-		with self.db.bind_ctx(models.modellist):
-			files = jsondataFulltextQuery["files"]
-			files_exclude = jsondataFulltextQuery["files_exclude"]
-			span = jsondataFulltextQuery["span"]
-			phrase = jsondataFulltextQuery["phrase"]
-			query = None
-			toret = {"type":"fulltextsearch"}
-			if files_exclude:
-				query = models.File.select(models.File.fullpath,models.Content.wordhash).join(models.Content).where(~models.File.fileIn(files))
-			else:
-				if files:
-					query = models.File.select(models.File.fullpath,models.Content.wordhash).join(models.Content).where(models.File.fileIn(files))
-				else:
-					query = models.File.select(models.File.fullpath,models.Content.wordhash).join(models.Content)
-			result = []
-			for row in query:
-				wordhash = row.content.wordhash
-				try:
-					wordhashD = json.loads(wordhash)
-					findingsD = multiPurposeParser.search(phrase,wordhashD,linespan=span,filepath=row.fullpath)
-					if findingsD:
-						result += findingsD
-				except Exception as E:
-					return responseGenerator.createExceptionResponse("fulltext-search across whole notebook failed: " + " | " + str(E) + " | " + str(type(E).__name__))
-
-			result = sorted(result, key=lambda k: k['rating'], reverse=True)
-			toret["data"] = result
-			return responseGenerator.createSuccessResponse(toret)
 
 	def clearDatabase(self):
 		try:
@@ -539,55 +271,20 @@ class Indexer:
 		with self.db.bind_ctx(models.modellist):
 			self.db.create_tables(models.modellist, safe=True)
 
-	def initializeProject(self,json):
-		with self.db.bind_ctx(models.modellist):
-			initProject(self.db,self.modeldict,json)
-
-	def wikipageHtml(self,path):
-		with self.db.bind_ctx(models.modellist):
-			try:
-				file = self.getFile(path)
-				if file:
-					content = models.Content.get_or_none(models.Content.fileid == file.id)
-					if content:
-						base64PathDict = {}
-						wikilinks = content.textlinks	
-						imagelinks = json.loads(content.imagelinks)
-						if imagelinks:
-							dirname = os.path.dirname(path)
-							l = {}
-							for entry in imagelinks:
-								relpath = entry["src"]
-								if not re.match(urlRegex,relpath):
-									if relpath.startswith("/"):
-										relpath = relpath[1:]
-									l[os.path.normpath(os.path.join(dirname,relpath))] = relpath
-
-
-							def DataUriGraphic(base64String,mimetype):
-								return "data:image/{0};base64,{1}".format(mimetype,base64String)
-
-							if l:
-								query = (models.File.select(models.File.fullpath,models.Image.base64,models.Image.mimetype).join(models.Image).where(models.File.fullpath.in_(list(l.keys()))))
-								for row in query:
-									relpath = l[row.fullpath]
-									base64PathDict[relpath] = DataUriGraphic(row.image.base64,row.image.mimetype)
-
-						html = multiPurposeParser.md2html(content.rawString, path, wikilinks = content.textlinks, base64PathDict = base64PathDict)
-						return html
-					else:
-						return "CONTENT OF WIKIPAGE NOT FOUND IN DATABASE"
-			except Exception as E:
-				return "Exception while generating wikipage: " + str(E) + " | " + type(E).__name__
-
 	def selContent(self):
 		with self.db.bind_ctx(models.modellist):
 			try:
 				r = models.Content.select()
 				l = []
 				for f in r:	
-					l.append(f.fileid)
-					l.append(f.headers)
+					try:
+						l.append({
+							"fullpath":str(f.fileid),
+							"rawString":str(f.rawString),
+							"headers":str(f.headers)
+							})
+					except Exception as E:
+						continue
 				return l
 			except Exception as e:
 				return str(e)
@@ -633,6 +330,72 @@ class Indexer:
 				l.append(f)
 			return l
 
+	def selAllFullpathFromImage(self):
+		with self.db.bind_ctx(models.modellist):
+			imageQuery = models.File.select(models.File.fullpath).join(models.Image).where(models.File.id==models.Image.fileid)
+			l = []
+			for file in imageQuery:
+				try:
+					l.append(file.fullpath)
+				except Exception as E:
+					return responseGenerator.createExceptionResponse("could not select all Fullpaths from Image-Entity")
+			return l
+
+	def selFullpathFromFile(self,filename):
+		with self.db.bind_ctx(models.modellist):
+			fileQuery = models.File.select(models.File.fullpath).where(models.File.name == filename)
+			l = []
+			for file in fileQuery:
+				try:
+					l.append(file.fullpath)
+				except Exception as E:
+					return responseGenerator.createExceptionResponse("could not select Fullpath")
+			return l
+
+	def selImageData(self,filepathList):
+		with self.db.bind_ctx(models.modellist):
+			query = (models.File.select(models.File.fullpath,models.Image.base64,models.Image.mimetype)
+								.join(models.Image).where(models.File.fullpath.in_(filepathList)))
+			l = []
+			for row in query:
+				try:
+					l.append({"fullpath":row.fullpath,"base64":row.image.base64,"mimetype":row.image.mimetype})
+				except Exception as E:
+					return responseGenerator.createExceptionResponse("could not select Image-Entity data")
+
+			return l
+
+	def selFulltextsearchMetadata(self,files_exclude,files):
+		if files_exclude:
+				query = models.File.select(models.File.fullpath,models.Content.wordhash).join(models.Content).where(~models.File.fileIn(files))
+		else:
+			if files:
+				query = models.File.select(models.File.fullpath,models.Content.wordhash).join(models.Content).where(models.File.fileIn(files))
+			else:
+				query = models.File.select(models.File.fullpath,models.Content.wordhash).join(models.Content)
+
+		l = []
+		for row in query:
+			try:
+				l.append({"fullpath":row.fullpath,"wordhash":row.content.wordhash})
+			except Exception as E:
+				return responseGenerator.createExceptionResponse("could not select selFulltextsearch metadata")
+
+		return l
+
+	def selWordsCharsReadtime(self):
+		with self.db.bind_ctx(models.modellist):
+			query = models.File.select(models.Content.wordsCharsReadtime).join(models.Content)
+			l = []
+			for row in query:
+				try:
+					wordsCharsReadtime = json.loads(row.content.wordsCharsReadtime)
+					l.append(wordsCharsReadtime)
+				except Exception as E:
+					return responseGenerator.createExceptionResponse("could not select WordsCharsReadtime")
+
+			return l
+
 	def getFile(self,fullPath):
 		with self.db.bind_ctx(models.modellist):
 			file = models.File.get_or_none(models.File.fullpath == fullPath)
@@ -669,18 +432,146 @@ class Indexer:
 		with self.db.bind_ctx(models.modellist):
 			c = self.modeldict["searchquery"].create(rawString = queryString,creationdate = int(round(time.time() * 1000)))
 
-	def runSearchQuery(self,jsondata):
-		if "files" in jsondata and "element" in jsondata and "values" in jsondata:
-			files = jsondata["files"]
-			element = jsondata["element"]
-			values = jsondata["values"]
-			try:
-				toret = {"type":"tagsearch"}
-				result = searchDataParser.search(files,element,values,self.db)
-				#elementHandlers[element["value"]](files,element,values,self.db)
-				toret["data"] = result
-				return responseGenerator.createSuccessResponse(toret)
-			except Exception as E:
-				return responseGenerator.createExceptionResponse("could not run tag-searchQuery: " + str(E) + " | " + type(E).__name__)
-		else:
-			return responseGenerator.createExceptionResponse("could not run tag-searchQuery: " + '"files" or "values" key not existent')
+	def deleteSavedQuery(self,queryString):
+		with self.db.bind_ctx(models.modellist):
+			searchQuery = self.getSearchQuery(queryString)
+			if not searchQuery:
+				return responseGenerator.createExceptionResponse("could not delete queryString: " + str(queryString) + " | " + "query-string not found in database")
+			else:
+				try:
+					searchQuery.delete_instance()
+					return responseGenerator.createSuccessResponse({"type":"deleted", "data":str(queryString)})
+				except Exception as E:
+					return responseGenerator.createExceptionResponse("could not remove search-query: " + str(queryString) + " | " + str(type(E).__name__))
+
+class Indexer:
+	def __init__(self, root_folder, sid, databaseWrapper, callbackError, wiki):
+		self.root_folder = root_folder
+		self.sid = sid
+		self.databaseWrapper = databaseWrapper
+		self.callbackError = callbackError
+		self.FileSystemWatcher = None
+		self.wiki = wiki
+		
+
+	def initialize(self):
+		return self.startFileSystemWatcher()
+
+	def cleanup(self):
+		if self.FileSystemWatcher:
+			self.FileSystemWatcher.stop()
+			self.FileSystemWatcher = None
+
+	def startFileSystemWatcher(self):
+		try:
+			if self.FileSystemWatcher and self.FileSystemWatcher.isRunning():
+				return
+			self.FileSystemWatcher = projectListener.FileSystemWatcher(self.filesChanged, self.callbackError, self.root_folder)
+			self.FileSystemWatcher.start()
+
+			return responseGenerator.createSuccessResponse("started FilesystemWatcher")
+		except Exception as E:
+			return responseGenerator.createExceptionResponse("could not start FilesystemWatcher")
+
+	def checkIndex(self):
+		json_project_structure = pathManager.path_to_dict(self.root_folder)
+		if not json_project_structure:
+			return responseGenerator.createExceptionResponse("no project structure found at: " + root_folder)
+
+		if self.FileSystemWatcher and self.FileSystemWatcher.isRunning():
+			self.FileSystemWatcher.pause()
+
+		filesJson = multiPurposeParser.extractFiles(json_project_structure)
+
+		try:
+			#self.dropTables()
+			self.databaseWrapper.createTables()
+			dbFiles = self.databaseWrapper.selFiles()
+			for dbFile in list(dbFiles):
+				for file in list(filesJson):
+					fullPath = file["path"]
+					if dbFile.fullpath == fullPath:
+						upToDate = file["lastmodified"] == dbFile.lastmodified
+						if not upToDate:
+							response = self.databaseWrapper.updateFile(file["path"],file["content"],file["lastmodified"],file["extension"])
+							if response["status"] == "exception":
+								return response
+							#print("updated",file["path"])
+							#print(models.Content.get(models.Content.filepath == dbFile.fullpath).headers)
+						else:
+							#print("file is up to date",file["path"])
+							#print(models.Content.get(models.Content.filepath == dbFile.fullpath).headers)
+							pass
+
+						filesJson.remove(file)
+						dbFiles.remove(dbFile)
+						break
+				
+
+			#leftovers in db
+			if dbFiles:
+				for f in dbFiles:
+					#print("deleting leftover",f.fullpath)
+					response = self.databaseWrapper.deleteFile(f.fullpath)
+					if response["status"] == "exception":
+						return response
+
+			if filesJson:
+				for f in filesJson:
+					#print("inserting new file",f["path"])
+					response = self.databaseWrapper.insertFile(f["path"],f["content"],f["lastmodified"],f["extension"])
+					if response["status"] == "exception":
+						return response
+
+			return responseGenerator.createSuccessResponse("indexed files")
+
+		except Exception as E:
+			return responseGenerator.createExceptionResponse("could not index files:" + str(E))
+		finally:
+			if self.FileSystemWatcher and self.FileSystemWatcher.isPaused():
+				self.FileSystemWatcher.resume()
+
+
+	def filesChanged(self,queueDict):
+		if not self.databaseWrapper.tablesExist():
+			return responseGenerator.createExceptionResponse("could not index: tables do not exist.. initialize db first")
+
+		q = queueDict["queue"]
+		filesChangedEvent = False
+		updateWikipageEvent = False
+		updatedPaths = []
+
+		for entry in q:
+			if not entry["valid"]:
+				continue
+			response = None
+			if entry["type"] == "modified":
+				response = self.databaseWrapper.updateFile(entry["srcPath"],entry["content"],entry["lastmodified"],pathManager.extensionNoDot(entry["srcPath"]))
+				updatedPaths.append(entry["srcPath"])
+				updateWikipageEvent = True
+
+			elif entry["type"] == "created":
+				response = self.databaseWrapper.insertFile(entry["srcPath"],entry["content"],entry["lastmodified"],pathManager.extensionNoDot(entry["srcPath"]))
+				filesChangedEvent = True
+
+			elif entry["type"] == "deleted":
+				response = self.databaseWrapper.deleteFile(entry["srcPath"])
+				filesChangedEvent = True
+
+			elif entry["type"] == "moved":
+				response = self.databaseWrapper.moveFile(entry["srcPath"],entry["destPath"],entry["lastmodified"])
+				filesChangedEvent = True
+			else:
+				return responseGenerator.createExceptionResponse("files_changed event data is corrupted")
+
+			if response["status"] == "exception":
+				return response
+
+		if filesChangedEvent:
+			sessionManager.notifySubscribers("files_changed",self.sid)
+		if updateWikipageEvent:
+			for path in updatedPaths:
+				sessionManager.notifySubscribers("update_wikipage",self.sid,path=path)
+
+		self.wiki.send("files_changed",str(queueDict))
+		return responseGenerator.createSuccessResponse("processed files_changed event")

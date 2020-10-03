@@ -21,7 +21,8 @@ class RenderWikipageCommand(sublime_plugin.TextCommand):
 				sid = con.sid()
 				encodedPath = quote(path, safe='')
 
-				webbrowser.open("http://localhost:9000/{}/{}".format(sid,encodedPath))
+				webbrowser.open("http://localhost:9000/{}/{}"
+						.format(sid,encodedPath))
 			else:
 				view = self.view
 				path = view.file_name()

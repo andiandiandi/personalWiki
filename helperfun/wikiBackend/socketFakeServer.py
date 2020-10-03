@@ -1,4 +1,5 @@
 from manager import sessionManager
+from manager import wikiManager
 import json
 
 connections = {}
@@ -38,8 +39,8 @@ def on_initializeProject(sid,jsonStr):
 
 def on_listSearchQuery(sid,jsonStr):
 	wiki = get(sid)
-	if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
-		response = wiki.Indexer.listSearchQuery()
+	if wiki.dbStatus == wikiManager.DbStatus.projectInitialized:
+		response = wiki.listSearchQuery()
 		if response["status"] == "exception":
 			error(response["response"], sid)
 		else:
@@ -51,8 +52,8 @@ def on_listSearchQuery(sid,jsonStr):
 
 def on_searchFulltext(sid,phrase,linespan=0,filepath=None):
 	wiki = get(sid)
-	if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
-		result = wiki.Indexer.searchFulltext(phrase,linespan=linespan,filepath=filepath)
+	if wiki.dbStatus == wikiManager.DbStatus.projectInitialized:
+		result = wiki.searchFulltext(phrase,linespan=linespan,filepath=filepath)
 		if result["status"] == "success":
 			connections[sid].emit("fulltext_search", json.dumps(result["response"]), room = sid)
 		elif result["status"] == "exception":
@@ -80,7 +81,7 @@ def on_initializeProject(sid,root_folder,Socket):
 
 def on_wikipageHTML(sid,path):
 	wiki = get(sid)
-	content = wiki.Indexer.wikipageHtml(path)
+	content = wiki.wikipageHtml(path)
 	connections[sid].emit("on_wikipageHTML",str(content),room=sid)
 
 def on_selFiles(sid,jsonStr):
@@ -104,14 +105,14 @@ def on_moveFile(sid,srcPath,destPath):
 	response = wiki.Indexer.moveFile(srcPath,destPath,1234)
 	connections[sid].emit("files_changed",str(response),room=sid)
 
-def on_wordCount(sid,srcPath=None,all=False):
+def on_wordCount(sid,srcPath=None):
 	wiki = get(sid)
-	response = wiki.Indexer.wordCount(srcPath,all)
+	response = wiki.wordCount(srcPath)
 	connections[sid].emit("word_count",str(response),room=sid)
 
 def on_clearDB(sid,jsonStr):
 	wiki = get(sid)
-	if wiki.dbStatus == sessionManager.DbStatus.notConnected:
+	if wiki.dbStatus == wikiManager.DbStatus.notConnected:
 		realJson = json.loads(jsonStr)
 		root_folder = realJson["root_folder"]
 		connected = wiki.connectToDatabase(root_folder)
@@ -119,13 +120,13 @@ def on_clearDB(sid,jsonStr):
 			error("could not connect to database",sid)
 			return
 			
-	result = wiki.Indexer.clearDatabase()
+	result = wiki.clearDatabase()
 	connections[sid].emit("clear_db", json.dumps(result), room = sid)
 
 def on_realSearchQuery(sid,jsonStr):
 	wiki = get(sid)
-	if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
-		result = wiki.Indexer.runRealSearchQuery(jsonStr)
+	if wiki.dbStatus == wikiManager.DbStatus.projectInitialized:
+		result = wiki.runRealSearchQuery(jsonStr)
 		connections[sid].emit("real_search_query", json.dumps(result), room = sid)
 	else:
 		error("you have to initialize the database first", sid)
@@ -133,8 +134,8 @@ def on_realSearchQuery(sid,jsonStr):
 
 def on_searchQuery(sid,jsonStr):
 	wiki = get(sid)
-	if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
-		result = wiki.Indexer.runSearchQuery(json.loads(jsonStr))
+	if wiki.dbStatus == wikiManager.DbStatus.projectInitialized:
+		result = wiki.runSearchQuery(json.loads(jsonStr))
 		connections[sid].emit("search_query", json.dumps(result), room = sid)
 	else:
 		error("you have to initialize the database first", sid)
@@ -142,7 +143,7 @@ def on_searchQuery(sid,jsonStr):
 
 def on_filesChanged(sid,jsonStr):
 	wiki = get(sid)
-	if wiki.dbStatus == sessionManager.DbStatus.projectInitialized:
+	if wiki.dbStatus == wikiManager.DbStatus.projectInitialized:
 		result = wiki.Indexer.filesChanged(json.loads(jsonStr))
 		connections[sid].emit("files_changed", str(result), room = sid)
 	else:

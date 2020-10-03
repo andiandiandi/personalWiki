@@ -1,12 +1,5 @@
 import os
-import time
-import threading
-from enum import Enum
-
-from . import databaseManager
-from . import pathManager
-from . import projectListener
-from . import responseGenerator
+from .wikiManager import Wiki
 
 
 wikis = {}
@@ -70,11 +63,6 @@ def hasConnections():
 def sids():
 	return wikis.keys()
 
-class DbStatus(Enum):
-	notConnected = 0
-	connectionEstablished = 1
-	projectInitialized = 2
-
 class Subscriber:
 	def __init__(self,socketSid,targetSid,eventname,socket,namespace,path=None):
 		self.socketSid = socketSid
@@ -83,6 +71,7 @@ class Subscriber:
 		self.identifier = {}
 		self.identifier[eventname] = path
 		self.namespace = namespace
+		
 	def hasTarget(self,targetSid):
 		return self.targetSid == targetSid
 
@@ -99,66 +88,3 @@ class Subscriber:
 
 	def send(self,event,jsondata):
 		self.socket.emit(event,jsondata,room=self.socketSid,namespace=self.namespace)
-
-class Wiki:
-	def __init__(self,sid,socket):
-		self.sid = sid
-		self.socket = socket
-		self.Indexer = None
-		self.dbStatus = DbStatus.notConnected
-		self.root_folder = None
-		self.FileSystemWatcher = None
-
-	def send(self,event,strdata):
-		self.socket.emit(event, strdata, room = self.sid)
-
-	def cleanup(self):
-		if self.FileSystemWatcher:
-			self.FileSystemWatcher.stop()
-		if self.Indexer:
-			self.Indexer.closeConnection()
-			del self.Indexer
-
-	def initializeProject(self, root_folder):
-		if self.dbStatus == DbStatus.notConnected:
-			response = pathManager.checkupWikiconfig(root_folder)
-			if response["status"] == "exception":
-				return response
-			self.connectToDatabase(root_folder)
-
-		if self.dbStatus.value >= DbStatus.connectionEstablished.value:
-			self.root_folder = root_folder
-			if self.FileSystemWatcher and self.FileSystemWatcher.isRunning():
-				self.FileSystemWatcher.pause()
-			response = self.Indexer.checkIndex()
-			if self.FileSystemWatcher and self.FileSystemWatcher.isPaused():
-				self.FileSystemWatcher.resume()
-			if response["status"] != "exception":
-				self.dbStatus = DbStatus.projectInitialized
-				self.startFileSystemWatcher()
-
-				return responseGenerator.createSuccessResponse("project initialized")
-			else:
-				return response
-
-		return responseGenerator.createExceptionResponse("could not initialize project")
-
-	def connectToDatabase(self,root_folder):
-		self.root_folder = root_folder
-		self.Indexer = databaseManager.Indexer(self)
-		dbConnectionEstablished = self.Indexer.create_connection()
-		
-		if dbConnectionEstablished:
-			self.dbStatus = DbStatus.connectionEstablished
-			return responseGenerator.createSuccessResponse("connected to Database")
-
-		return responseGenerator.createExceptionResponse("could not connect to Database")
-
-	def startFileSystemWatcher(self):
-		if self.FileSystemWatcher and self.FileSystemWatcher.isRunning():
-			return
-		self.FileSystemWatcher = projectListener.FileSystemWatcher(self)
-		self.FileSystemWatcher.start()
-
-	def send(self,event,jsondata):
-		self.socket.emit(event,jsondata,room=self.sid)
