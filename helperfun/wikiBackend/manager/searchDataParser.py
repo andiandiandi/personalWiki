@@ -48,7 +48,7 @@ def search(files,rootelement,rootvalues,db):
 			return None
 
 def parseQuery(query,rootelement,rootvalues):
-	debug = False
+	debug = True
 	toret = []
 	for file in query:
 		jsonstr = getattr(file.content,rootelement["value"])
@@ -60,12 +60,14 @@ def parseQuery(query,rootelement,rootvalues):
 				if debug:
 					print("ele",element)
 				fulfilled = True
+				content = ""
+				if "children" in element and element["children"][0] and "content" in element["children"][0]:
+					content = element["children"][0]["content"]
 				for value in rootvalues:
-					if debug:
-						print("value",value)
-						print("element",element)
-						print("attribute",value["attribute"])
-						print("attribute_value", value["value"])
+					print("value",value)
+					print("element",element)
+					print("attribute",value["attribute"])
+					print("attribute_value", value["value"])
 					attribute = value["attribute"]
 					attribute_value = value["value"]
 					negate = value["negate"]
@@ -97,6 +99,7 @@ def parseQuery(query,rootelement,rootvalues):
 										break
 				if fulfilled:
 					retobj = createFile(file.name,file.extension,file.relpath)
+					retobj["content"] = content
 					span = element["span"]
 					if span:
 						lines = []

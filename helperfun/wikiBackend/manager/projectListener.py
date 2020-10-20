@@ -16,25 +16,54 @@ from .libs.watchdog.observers import Observer
 from . import sessionManager
 from . import pathManager
 
+INDEXINTERVAL = 2
 
-class FileEventHandler(PatternMatchingEventHandler):
+class FileEventHandler(FileSystemEventHandler):
 
-	def __init__(self,patterns=None,ignore_directories=False):
-		super(FileEventHandler,self).__init__(patterns=patterns,ignore_directories=ignore_directories)
+	def __init__(self):
+		#super(FileEventHandler,self).__init__()
 		self.historyQueue = deque()
+		self.modifiedBookkeeping = {}
 		self.lock = Lock()
 
+	def clearBooking(self):
+		self.modifiedBookkeeping.clear()
+
 	def on_moved(self, event):
-		self.accessQueue("moved",event)
+		if event.is_directory:
+			return
+		name, ext = os.path.splitext(event.src_path)
+		if ext:
+			if pathManager.isExtSupported(ext):
+				print("MOVED",ext)
+				self.accessQueue("moved",event)
 
 	def on_created(self, event):
-		self.accessQueue("created",event)
+		if event.is_directory:
+			return
+		name, ext = os.path.splitext(event.src_path)
+		if ext:
+			if pathManager.isExtSupported(ext):
+				print("created",event)
+				self.accessQueue("created",event)
 
 	def on_deleted(self, event):
-		self.accessQueue("deleted",event)
+		name, ext = os.path.splitext(event.src_path)
+		if ext:
+			if pathManager.isExtSupported(ext):
+				print("deleted",event)
+				self.accessQueue("deleted",event)
+		else:
+			self.accessQueue("deletedDirectoryGuess", event)
 
 	def on_modified(self, event):
-		self.accessQueue("modified",event)
+		if event.is_directory:
+			return
+		name, ext = os.path.splitext(event.src_path)
+		if ext:
+			if pathManager.isExtSupported(ext):
+				print("MODIFIED",event)
+				self.accessQueue("modified",event)
 
 	def accessQueue(self,accessType,event=None):
 		with self.lock:
@@ -42,24 +71,45 @@ class FileEventHandler(PatternMatchingEventHandler):
 				dCopy = copy.deepcopy(self.historyQueue)
 				self.historyQueue.clear()
 				return dCopy
-			elif accessType == "modified":
-				self.historyQueue.append({"type":"modified",
+
+			eventObj = None
+			if accessType == "modified":
+				eventObj = {"type":"modified",
 								"srcPath":event.src_path,
-								"valid":True})
+							"valid": True}
 			elif accessType == "created":
-				self.historyQueue.append({"type":"created",
+				eventObj = {"type":"created",
 								"srcPath":event.src_path,
-								"valid":True})
+								"valid":True}
 			elif accessType == "deleted":
-				self.historyQueue.append({"type":"deleted",
+				eventObj = {"type":"deleted",
 								"srcPath":event.src_path,
-								"valid":True})
+								"valid":True}
 			elif accessType == "moved":
-				self.historyQueue.append({"type":"moved",
+				eventObj = {"type":"moved",
 								"srcPath":event.src_path,
-							 "destPath":event.dest_path,
-							 "valid" : True
-					})
+								 "destPath":event.dest_path,
+								 "valid" : True}
+			elif accessType == "deletedDirectoryGuess":
+				eventObj = {"type":"deletedDirectoryGuess",
+								"srcPath":event.src_path,
+								 "valid" : True}
+
+			if eventObj:
+				if eventObj["type"] == "modified" or eventObj["type"] == "created" or eventObj["type"] == "moved":
+					eventObj["lastmodified"] = FileSystemWatcher.readModifiedValue(eventObj["srcPath"] if eventObj["type"] != "moved" else eventObj["destPath"])
+					if eventObj["srcPath"] in self.modifiedBookkeeping and self.modifiedBookkeeping[eventObj["srcPath"]] == eventObj["lastmodified"]:
+						eventObj["valid"] = False
+					else:
+						self.modifiedBookkeeping[eventObj["srcPath"]] = eventObj["lastmodified"]
+					if eventObj["type"] != "moved":
+						eventObj["content"] = pathManager.generateContent(eventObj["srcPath"])
+					else:
+						if eventObj["srcPath"] == eventObj["destPath"]:
+							eventObj["valid"] = False
+
+			self.historyQueue.append(eventObj)
+			
 
 	def fetch(self):
 		return self.accessQueue("fetch")
@@ -73,7 +123,9 @@ class FileSystemWatcher:
 		self.root_folder = root_folder
 		self.shouldRun = False
 		self.paused = False
-		self.event_handler = FileEventHandler(patterns=['*'+ e for e in pathManager.supportedExtensions()],ignore_directories=True)
+		#patterns=['*'+ e for e in pathManager.supportedExtensions()]
+		#ignore_directories=False
+		self.event_handler = FileEventHandler()
 		self.observer = Observer()
 
 	def start(self):
@@ -103,12 +155,15 @@ class FileSystemWatcher:
 		self.observer.start()
 		try:
 			while self.shouldRun:
-				time.sleep(4)
+				global INDEXINTERVAL
+				time.sleep(INDEXINTERVAL)
 				if not self.shouldRun:
 					break
 				if self.isPaused():
 					continue
 				q = self.event_handler.fetch()
+				self.event_handler.clearBooking()
+				"""
 				modifiedBookkeeping = {}
 				if q:
 					for d in q:
@@ -125,6 +180,8 @@ class FileSystemWatcher:
 									d["valid"] = False
 
 					modifiedBookkeeping.clear()
+				"""
+				if q:
 					dict_wrapper = {"queue":[entry for entry in q]}
 					result = self.callbackFileschanged(dict_wrapper)
 		except Exception as e:

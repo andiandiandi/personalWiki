@@ -1,7 +1,7 @@
 [
     {
         "caption": "connect to wiki server",
-        "command": "init_wiki"
+        "command": "connect_wiki"
     },
     {
         "caption": "initialize wiki project",

@@ -71,11 +71,11 @@ def on_searchQuery(jsonStr):
 				socketio.emit("search_query", json.dumps(response["response"]), room = request.sid)
 
 @socketio.on('saved_search_query')
-def on_listSearchQuery():
+def on_listSearchQuery(root_folder):
 	wiki = get(request.sid)
 	if wiki:
 		if wiki.dbStatus == wikiManager.DbStatus.projectInitialized:
-			response = wiki.listSearchQuery()
+			response = wiki.listSearchQuery(root_folder)
 			if response["status"] == "exception":
 				error(response["response"],request.sid)
 			else:
@@ -212,36 +212,36 @@ def on_wordCount(targetPath):
 
 @socketio.on('create_wikilink')
 def on_createWikilink(jsonstr):
-	try:
-		d = json.loads(jsonstr)
-		wiki = get(request.sid)
+	wiki = get(request.sid)
+	if wiki:
 		if wiki.dbStatus == wikiManager.DbStatus.projectInitialized:
-			if d["type"] == "toggle":
-				word = d["word"]
-				srcPath = d["srcPath"]
-				result = wiki.generateWikilinkData(word,srcPath)
-				socketio.emit("create_wikilink", json.dumps(result["response"]), room = request.sid)
-			elif d["type"] == "imagelink":
-				srcPath = d["srcPath"]
-				result = wiki.generateImagelinkData(srcPath)
-				socketio.emit("create_wikilink", json.dumps(result["response"]), room = request.sid)
-			elif d["type"] == "create":
-				filename = d["filename"]
-				template = d["template"]
-				folder = d["folder"]
-				srcPath = d["srcPath"]
-				result = wiki.createWikilink(template,folder,filename,srcPath)
-				if result["status"] == "exception":
-					error(result["response"], request.sid)
-				else:
+			try:
+				d = json.loads(jsonstr)
+				if d["type"] == "toggle":
+					word = d["word"]
+					srcPath = d["srcPath"]
+					result = wiki.generateWikilinkData(word,srcPath)
 					socketio.emit("create_wikilink", json.dumps(result["response"]), room = request.sid)
-			else:
-				error("corrupted data string", request.sid)
-
+				elif d["type"] == "imagelink":
+					srcPath = d["srcPath"]
+					result = wiki.generateImagelinkData(srcPath)
+					socketio.emit("create_wikilink", json.dumps(result["response"]), room = request.sid)
+				elif d["type"] == "create":
+					filename = d["filename"]
+					template = d["template"]
+					folder = d["folder"]
+					srcPath = d["srcPath"]
+					result = wiki.createWikilink(template,folder,filename,srcPath)
+					if result["status"] == "exception":
+						error(result["response"], request.sid)
+					else:
+						socketio.emit("create_wikilink", json.dumps(result["response"]), room = request.sid)
+				else:
+					error("corrupted data string", request.sid)
+			except Exception as E:
+				error("Error in 'create_wikilink'-event: " + str(E) + " | " + type(E).__name__, request.sid)
 		else:
 			error("you have to initialize the project first", request.sid)
-	except Exception as E:
-		error("Error in 'create_wikilink'-event: " + str(E) + " | " + type(E).__name__, request.sid)
 
 
 @socketio.on('render_wikipage')

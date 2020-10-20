@@ -113,7 +113,7 @@ class Connection:
 
 	def updateWikiState(self,newState):
 		self.wikiState = newState
-		print(newState)
+		print("newstate:", newState)
 		if self.wikiState == WikiState.disconnected:
 			localApi.runWindowCommand(self.root_folder,"remove_wiki")
 
@@ -164,7 +164,7 @@ class Connection:
 		localApi.runWindowCommand(self.root_folder,"show_word_count",args={"d":data})
 
 	def filesChangedResponse(self,jsondata):
-		print(jsondata)
+		print("FILESCHANGED", jsondata)
 
 	def clearWikiDatabaseResponse(self,jsondata):
 		print(jsondata)

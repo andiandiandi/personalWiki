@@ -49,7 +49,7 @@ class DatabaseWrapper:
 	def hasConnection(self):
 		return bool(self.db)
 
-	def deleteFile(self,fullpath):
+	def deleteFile(self, fullpath):
 		with self.db.bind_ctx(models.modellist):
 			fileInDb = self.getFile(fullpath)
 			if not fileInDb:
@@ -114,22 +114,28 @@ class DatabaseWrapper:
 					l = []
 					pathContentL = {}
 
-					query = (models.File.select(models.Content.textlinks,models.Content.rawString,models.File.fullpath).join(models.Content))
+					query = (models.File.select(models.Content.textlinks,models.File.fullpath).join(models.Content))
 					for file in query:
 						try:
 							d = json.loads(file.content.textlinks)
-							l.append((srcPath,file.fullpath,d,file.content.rawString))
+							l.append((srcPath,file.fullpath,d))
+							print("APPEND",(srcPath,file.fullpath,d))
 						except:
 							continue
 					for item in l:
 						hasWikilink = models.Content.hasWikilink(item[0],item[1],item[2])						
 						if hasWikilink:
-							pathContentL[item[1]] = item[3]
+							pathContentL[item[1]] = self.getContent(None,fullpath = item[1]).rawString
 
 					replacee = pathManager.basename_w_ext_of_path(srcPath)
 					toreplace = pathManager.basename_w_ext_of_path(destPath)
+
 					for path, rawContent in pathContentL.items():
 						pathContentL[path] = rawContent.replace(replacee,toreplace)
+						print("REPLACED " + str(replacee) + " with " + str(toreplace) + " in " + path)
+
+
+					print("IPDATE",pathContentL)
 
 					t1 = threading.Thread(target=pathManager.writeFiles, args=(pathContentL,))
 					t1.start()
@@ -330,6 +336,14 @@ class DatabaseWrapper:
 				l.append(f)
 			return l
 
+	def selFilenames(self):
+		with self.db.bind_ctx(models.modellist):
+			r = models.File.select()
+			l = []
+			for f in r:
+				l.append(f.fullpath)
+			return l
+
 	def selAllFullpathFromImage(self):
 		with self.db.bind_ctx(models.modellist):
 			imageQuery = models.File.select(models.File.fullpath).join(models.Image).where(models.File.id==models.Image.fileid)
@@ -403,8 +417,14 @@ class DatabaseWrapper:
 				return file
 			return None
 
-	def getContent(self,fileid):
+	def getContent(self, fileid, fullpath = None):
 		with self.db.bind_ctx(models.modellist):
+			if fullpath:
+				file = self.getFile(fullpath)
+				if file:
+					fileid = file.id
+				else:
+					return None
 			content = models.Content.get_or_none(models.Content.fileid == fileid)
 			if content:
 				return content
@@ -417,10 +437,24 @@ class DatabaseWrapper:
 				return q
 			return None
 
-	def listSearchQuery(self):
+	def handleDeletedDirectoryGuess(self, deletedParentPath):
+		try:
+			with self.db.bind_ctx(models.modellist):
+				query = models.File.select(models.File.fullpath)
+				for entry in query:
+					if pathManager.path_is_parent(deletedParentPath, entry.fullpath):
+						self.deleteFile(entry.fullpath)
+
+			return responseGenerator.createSuccessResponse("handled deleted directory guess successfully")
+		except Exception as E:
+			return responseGenerator.createExceptionResponse("could not handle directory deleted guess | " + str(E) + " | " + type(E).__name__)
+
+
+	def listSearchQuery(self, root_folder):
 		with self.db.bind_ctx(models.modellist):
 			try:
-				searchQuery = models.SearchQuery.select()
+				searchQuery = models.SearchQuery.select(models.SearchQuery.rawString,
+														models.SearchQuery.creationdate)
 				l = []
 				for row in searchQuery:
 					l.append({"rawString":row.rawString,"creationdate":row.creationdate})
@@ -560,6 +594,9 @@ class Indexer:
 
 			elif entry["type"] == "moved":
 				response = self.databaseWrapper.moveFile(entry["srcPath"],entry["destPath"],entry["lastmodified"])
+				filesChangedEvent = True
+			elif entry["type"] == "deletedDirectoryGuess":
+				response = self.databaseWrapper.handleDeletedDirectoryGuess(entry["srcPath"])
 				filesChangedEvent = True
 			else:
 				return responseGenerator.createExceptionResponse("files_changed event data is corrupted")

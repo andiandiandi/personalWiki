@@ -15,6 +15,9 @@
 	{ "keys": ["alt+f"], "command": "drag_and_drop"},
 	{ "keys": ["alt+b"], "command": "test_test"},
 
+	{ "keys": ["alt+1"], "command": "connect_wiki"},
+	{ "keys": ["alt+2"], "command": "initialize_wiki_project"},
+	{ "keys": ["alt+3"], "command": "disconnect_wiki"},
 	{ "keys": ["ctrl+alt+q"], "command": "insert_template", "args":{ "wikipage": "C:\\Users\\Andre\\Desktop\\aaa\\newFile.md","template_filename": "timeAndPagename"}},
 ]
 

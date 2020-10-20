@@ -37,7 +37,6 @@ class Wiki:
 		self.dbStatus = DbStatus.notConnected
 		self.root_folder = None
 
-
 	def callbackError(self,message):
 		self.send("error",message)
 
@@ -102,7 +101,7 @@ class Wiki:
 		elif response["status"] == "success":
 			parsedQueryD = json.loads(response["response"])
 			if "searchhistory" in parsedQueryD and parsedQueryD["searchhistory"]:
-				self.addSearchQuery(parsedQueryD["searchhistory"])				
+				self.databaseWrapper.addSearchQuery(parsedQueryD["searchhistory"])				
 			if parsedQueryD["type"] == "delete":
 				return self.deleteSavedQuery(parsedQueryD["query"])
 			if parsedQueryD["type"] == "tagsearch":
@@ -119,7 +118,6 @@ class Wiki:
 
 	def deleteSavedQuery(self,queryString):
 		return self.databaseWrapper.deleteSavedQuery(queryString)
-			
 
 	def wordCount(self, path = None):
 		try:
@@ -181,7 +179,6 @@ class Wiki:
 
 	def generateImagelinkData(self,srcPath):
 		with self.db.bind_ctx(models.modellist):
-			
 			fullpathsList = self.databaseWrapper.selAllFullpathFromImage()
 			if type(fullpathList) == dict and "status" in fullpathList:
 				return fullpathList
@@ -295,8 +292,8 @@ class Wiki:
 			return "Exception while generating wikipage: " + str(E) + " | " + type(E).__name__
 
 
-	def listSearchQuery(self):
-		return self.databaseWrapper.listSearchQuery()
+	def listSearchQuery(self,root_folder):
+		return self.databaseWrapper.listSearchQuery(root_folder)
 
 	def runSearchQuery(self,jsondata):
 		if "files" in jsondata and "element" in jsondata and "values" in jsondata:

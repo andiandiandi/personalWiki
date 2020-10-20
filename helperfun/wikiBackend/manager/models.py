@@ -69,5 +69,4 @@ class SearchQuery(Model):
 	rawString = CharField()
 	creationdate = FloatField()
 
-
 modellist = [File,Image,SearchQuery,Content]

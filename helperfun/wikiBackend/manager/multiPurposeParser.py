@@ -61,9 +61,9 @@ def textDict(md_ast):
 		for entry in md_ast["children"]:
 			l += textDict(entry)
 	elif "content" in md_ast:
-			content = re.sub('\W+',' ', md_ast["content"]).strip()
-			if content:
-				l.append({"start":md_ast["span"]["start"],"read":md_ast["span"]["read"],"content": content})
+		content = re.sub('\W+',' ', md_ast["content"]).strip()
+		if content:
+			l.append({"start":md_ast["span"]["start"],"read":md_ast["span"]["read"],"content": content})
 	return l
 
 

@@ -12,7 +12,6 @@ from .helperfun import sessionManager
 from .helperfun import pathManager
 from .helperfun import localApi
 
-
 imp.reload(sessionManager)
 imp.reload(pathManager)
 imp.reload(localApi)
@@ -34,14 +33,12 @@ class InitializeWikiProjectCommand(sublime_plugin.TextCommand):
 		else:
 			sublime.error_message("connect to wiki server before initializing the project")
 
-
 class RemoveWikiCommand(sublime_plugin.TextCommand):
 	
 	def run(self,edit):
 		root_folder = pathManager.root_folder()
 		if sessionManager.hasProject(root_folder):
 			sessionManager.remove(root_folder)
-
 
 class DisconnectWikiCommand(sublime_plugin.TextCommand):
 	
@@ -50,6 +47,7 @@ class DisconnectWikiCommand(sublime_plugin.TextCommand):
 		if sessionManager.hasProject(root_folder):
 			con = sessionManager.connection(root_folder)
 			con.disconnect()
+
 class SelContentCommand(sublime_plugin.TextCommand):
 	
 	def run(self,edit):
@@ -63,7 +61,6 @@ class SelFilesCommand(sublime_plugin.TextCommand):
 		root_folder = pathManager.root_folder()
 		con = sessionManager.connection(root_folder)
 		con.selFiles()
-
 
 class PrintProjectStructureCommand(sublime_plugin.TextCommand):
 
@@ -80,8 +77,7 @@ class ClearWikiDatabaseCommand(sublime_plugin.TextCommand):
 
 		con.clearWikiDatabase()
 
-
-class InitWikiCommand(sublime_plugin.TextCommand):
+class ConnectWikiCommand(sublime_plugin.TextCommand):
 
 	def run(self, edit):
 		window = self.view.window()

@@ -12,8 +12,29 @@ def basename_w_ext_of_path(full_filepath_with_name):
 def extension_of_filepath(full_filepath_with_name):
 	return os.path.splitext(os.path.basename(full_filepath_with_name))[1]
 
+def path_is_parent(parent_path, child_path):
+    # Smooth out relative path names, note: if you are concerned about symbolic links, you should use os.path.realpath too
+    parent_path = os.path.abspath(parent_path)
+    child_path = os.path.abspath(child_path)
+
+    # Compare the common path of the parent and child path with the common path of just the parent path. Using the commonpath method on just the parent path will regularise the path name in the same way as the comparison that deals with both paths, removing any trailing path separator
+    return os.path.commonpath([parent_path]) == os.path.commonpath([parent_path, child_path])
+
 def listFolders(root_folder):
 	return [x[0] for x in os.walk(root_folder) if os.path.basename(x[0]) != "wikiconfig"]
+
+def listFiles(root_folder):
+	l = []
+	for (r, d, filenames) in os.walk(root_folder):
+		for filename in filenames:
+			name, ext = os.path.splitext(filename)
+			if ext:
+				if isExtSupported(ext):
+					l.append(os.path.join(r,filename))
+	return l
+
+def isExtSupported(ext):
+	return ext.lower() in supportedExtensions()
 
 def folder_has_file(folder,full_path_of_file):
 	for folder, subs, files in os.walk(folder):

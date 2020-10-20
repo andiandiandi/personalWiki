@@ -101,16 +101,18 @@ class ShowSearchResultCommand(sublime_plugin.TextCommand):
 					"""
 				if searchType == "tagsearch":
 					for entry in data:
+						print("entry",entry)
 						if entry["lines"]:
 							for line in entry["lines"]:
 								subHtml = """
 										<div>
 											<a href="{2}::{3}" class="fillthediv">
 												<p>file:{0} | line:{1}</p>
+												<p>> "{4}"</p>
 											</a>
 										</div>
 										
-								""".format(os.path.basename(entry["filepath"]),line,entry["filepath"],entry["lines"])
+								""".format(os.path.basename(entry["filepath"]),line,entry["filepath"],entry["lines"],entry["content"])
 
 								c += subHtml
 						else:
@@ -165,7 +167,7 @@ class ShowSearchResultCommand(sublime_plugin.TextCommand):
 					self.view.hide_popup()
 					load_and_select(None,viewname,lines[0],lines[-1])
 
-				self.view.show_popup(c,max_width=1000,max_height=1080,location=0,on_navigate=on_navigate,on_hide=on_hide)
+				self.view.show_popup(c,max_width=650,max_height=1080,location=0,on_navigate=on_navigate,on_hide=on_hide)
 		except Exception as E:
 			localApi.error(str(E))
 
