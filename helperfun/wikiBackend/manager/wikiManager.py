@@ -152,48 +152,48 @@ class Wiki:
 			return responseGenerator.createExceptionResponse("could not count words,chars,readtime: " + (path if path else "query on whole notebook") + " | " + str(E) + " | " + type(E).__name__)
 
 	def generateWikilinkData(self,filename,srcPath):
-			def listFiles(fullpathList):
-				l = []
-				for fullpath in fullpathList:
-					d = {"title":filename,"link":os.path.relpath(fullpath,os.path.dirname(srcPath)),"tooltip":fullpath}
-					l.append(d)		
-				return l
+		def listFiles(fullpathList):
+			l = []
+			for fullpath in fullpathList:
+				d = {"title":filename,"link":os.path.relpath(fullpath,os.path.dirname(srcPath)),"tooltip":fullpath}
+				l.append(d)		
+			return l
 
-			fullpathList = self.databaseWrapper.selFullpathFromFile(filename)
-			if type(fullpathList) == dict and "status" in fullpathList:
-				return fullpathList
+		fullpathList = self.databaseWrapper.selFullpathFromFile(filename)
+		if type(fullpathList) == dict and "status" in fullpathList:
+			return fullpathList
 
-			l = listFiles(fullpathList)
-			d = {}
-			if l:
-				d["type"] = "directlink"
-				d["files"] = l		
-			if not l:
-				d["type"] = "create"
-				d["filename"] = filename
-				templatePathDict = templateManager.templatePathDict()
-				d["templates"] = list(templatePathDict.keys()) if templatePathDict else []
-				d["folders"] = pathManager.listFolders(self.root_folder)
+		l = listFiles(fullpathList)
+		d = {}
+		if l:
+			d["type"] = "directlink"
+			d["files"] = l		
+		if not l:
+			d["type"] = "create"
+			d["filename"] = filename
+			templatePathDict = templateManager.templatePathDict()
+			d["templates"] = list(templatePathDict.keys()) if templatePathDict else []
+			d["folders"] = pathManager.listFolders(self.root_folder)
 
-			return responseGenerator.createSuccessResponse(d)
+		return responseGenerator.createSuccessResponse(d)
 
 	def generateImagelinkData(self,srcPath):
-		with self.db.bind_ctx(models.modellist):
-			fullpathsList = self.databaseWrapper.selAllFullpathFromImage()
-			if type(fullpathList) == dict and "status" in fullpathList:
-				return fullpathList
+		fullpathsList = self.databaseWrapper.selAllFullpathFromImage()
+		if type(fullpathsList) == dict and "status" in fullpathsList:
+			return fullpathsList
 
-			for fullpath in fullpathsList:
-				l.append({"title":"","link":os.path.relpath(fullpath,os.path.dirname(srcPath)),"tooltip":fullpath})
+		l = []
+		for fullpath in fullpathsList:
+			l.append({"title":"","link":os.path.relpath(fullpath,os.path.dirname(srcPath)),"tooltip":fullpath})
 
-			d = {}
-			if l:
-				d["type"] = "directimagelink"
-				d["files"] = l		
-			if not l:
-				d["type"] = "createimagelink"
+		d = {}
+		if l:
+			d["type"] = "directimagelink"
+			d["files"] = l		
+		if not l:
+			d["type"] = "createimagelink"
 
-			return responseGenerator.createSuccessResponse(d)
+		return responseGenerator.createSuccessResponse(d)
 
 
 	def createWikilink(self,template,folder,filename,srcPath):

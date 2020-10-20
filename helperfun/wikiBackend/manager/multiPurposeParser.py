@@ -75,6 +75,7 @@ def createWordHash(textDict):
 		content = entry["content"]
 		d["lines"][entry["start"]] = content
 		for word in content.split(" "):
+			word = word.lower()
 			if word:
 				if word[:1] not in d:
 					d.setdefault(word[:1],[]).append((word,list(set([entry["start"]]))))
@@ -88,7 +89,6 @@ def createWordHash(textDict):
 							break
 					if not found:
 						d[word[:1]].append((word,list(set([entry["start"]]))))
-
 	return d
 
 
@@ -163,6 +163,7 @@ def search(phrase, wordHash, linespan=0,filepath = None):
 		phrase = [w.replace(" ","") for w in phrase.split(" ")]
 	for word in phrase:
 		#[(word,[start])]
+		word = word.lower()
 		if not word[:1] in wordHash:
 			return None
 		wordlist = wordHash[word[:1]]
@@ -191,8 +192,13 @@ def search(phrase, wordHash, linespan=0,filepath = None):
 				r["filepath"] = filepath
 			l.append(r)
 		if l:
-			sortedFindings = sorted(l, key=lambda k: k['rating'], reverse=True) 
-			finalResult = sortedFindings
+			sortedFindings = sorted(l, key=lambda k: k['rating'], reverse=True)
+			filteredFindings = list(filter(lambda k : k["rating"] >= 0.7, sortedFindings))
+			size = len(filteredFindings)
+			if size >= 4:
+				finalResult = filteredFindings
+			else:
+				finalResult = sortedFindings
 
 	return finalResult
 

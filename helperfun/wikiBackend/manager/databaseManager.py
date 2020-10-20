@@ -380,22 +380,23 @@ class DatabaseWrapper:
 			return l
 
 	def selFulltextsearchMetadata(self,files_exclude,files):
-		if files_exclude:
-				query = models.File.select(models.File.fullpath,models.Content.wordhash).join(models.Content).where(~models.File.fileIn(files))
-		else:
-			if files:
-				query = models.File.select(models.File.fullpath,models.Content.wordhash).join(models.Content).where(models.File.fileIn(files))
+		with self.db.bind_ctx(models.modellist):
+			if files_exclude:
+					query = models.File.select(models.File.fullpath,models.Content.wordhash).join(models.Content).where(~models.File.fileIn(files))
 			else:
-				query = models.File.select(models.File.fullpath,models.Content.wordhash).join(models.Content)
+				if files:
+					query = models.File.select(models.File.fullpath,models.Content.wordhash).join(models.Content).where(models.File.fileIn(files))
+				else:
+					query = models.File.select(models.File.fullpath,models.Content.wordhash).join(models.Content)
 
-		l = []
-		for row in query:
-			try:
-				l.append({"fullpath":row.fullpath,"wordhash":row.content.wordhash})
-			except Exception as E:
-				return responseGenerator.createExceptionResponse("could not select selFulltextsearch metadata")
+			l = []
+			for row in query:
+				try:
+					l.append({"fullpath":row.fullpath,"wordhash":row.content.wordhash})
+				except Exception as E:
+					return responseGenerator.createExceptionResponse("could not select Fulltextsearch metadata")
 
-		return l
+			return l
 
 	def selWordsCharsReadtime(self):
 		with self.db.bind_ctx(models.modellist):
