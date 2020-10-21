@@ -169,8 +169,8 @@ def wikipage(sid,path):
 
 @app.route('/')
 def index():
-	sids = sessionManager.sids()
-	return render_template('index.html', sids=sids)
+	sidRootfolderMapping = sessionManager.sidRootfolderMap()
+	return render_template('index.html', sidRootfolderMapping = sidRootfolderMapping)
 
 @socketio.on('subscribe', namespace='/events')
 def subscribeFilesChanged(data):

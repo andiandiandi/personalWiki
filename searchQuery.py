@@ -87,6 +87,7 @@ class SelectInViewCommand(sublime_plugin.TextCommand):
 class ShowSearchResultCommand(sublime_plugin.TextCommand):
 	def run(self,edit,queryResult):
 		try:
+			print(queryResult)
 			queryResultParsed = json.loads(queryResult)
 			searchType = queryResultParsed["type"]
 			data = queryResultParsed["data"]
@@ -205,3 +206,91 @@ class SearchQueryDebugCommand(sublime_plugin.TextCommand):
 		
 	def on_cancel(self):
 		pass
+
+class SearchQueryTestCommand(sublime_plugin.TextCommand):
+	def run(self, edit):
+		queryResult = json.dumps({"type": "fulltextsearch", "data": [{"lines": [3], "rating": 1.0, "fullphrase": "Wer marschen eigentum hinunter jahrlich launigen wir freundes Schritt den pfeifen bei schlief brummte Wunderbar so verwegene em ri aufstehen neugierig turnhalle Gegen haute hin guter ferne gib zarte war Heut ein auf las fiel igen Schlupfte aufstehen tat weiterhin schnupfen den Ja er knopf darum blank ri du notig lange etwas", "filepath": "C:\\Users\\Andre\\Desktop\\onefilewiki\\tt.md"}]})
+		try:
+			queryResultParsed = json.loads(queryResult)
+			searchType = queryResultParsed["type"]
+			data = queryResultParsed["data"]
+			if data:
+				c = """
+					<html>
+						<body>
+							<style>
+								a.fillthediv{display:block;height:100%;width:1000px;text-decoration: none;}
+							</style>
+							
+					"""
+				if searchType == "tagsearch":
+					for entry in data:
+						print("entry",entry)
+						if entry["lines"]:
+							for line in entry["lines"]:
+								subHtml = """
+										<div>
+											<a href="{2}::{3}" class="fillthediv">
+												<p>file:{0} | line:{1}</p>
+												<p>> "{4}"</p>
+											</a>
+										</div>
+										
+								""".format(os.path.basename(entry["filepath"]),line,entry["filepath"],entry["lines"],entry["content"])
+
+								c += subHtml
+						else:
+							subHtml = """
+										<div>
+											<a href="{1}::{2}" class="fillthediv">
+												<p>file: {0}</p>
+											</a>
+										</div>
+										
+								""".format(os.path.basename(entry["filepath"]),entry["filepath"],[0])
+								
+							c += subHtml
+
+
+
+				elif searchType == "fulltextsearch":
+					for entry in data:
+						subHtml = """
+								<div>
+									<a href="{2}::{3}" class="fillthediv">
+										<p>rating: {0} | file: {5} | lines: {4}</p>
+										<p>{1}</p>
+									</a>
+								</div>
+								
+						""".format(str(round((float(entry["rating"]) * 100),2)) + "%",entry["fullphrase"],
+									entry["filepath"],entry["lines"],entry["lines"][0] if len(entry["lines"]) == 1 else str(entry["lines"][0]) + "-" + str(entry["lines"][-1]),
+									os.path.basename(entry["filepath"]))
+
+						c += subHtml
+				elif searchType == "deleted":
+					pass
+				else:
+					localApi.error("unsupported query result: " + queryResult)
+					return
+
+				c += """
+					</body>
+				</html>
+				"""
+
+				def on_hide():
+					pass
+
+				def on_navigate(href):
+					#if href == "closePopup":
+					#	self.view.hide_popup()
+					print(href)
+					viewname,linesStr = href.split("::")
+					lines = json.loads(linesStr)
+					self.view.hide_popup()
+					load_and_select(None,viewname,lines[0],lines[-1])
+
+				self.view.show_popup(c,max_width=650,max_height=1080,location=0,on_navigate=on_navigate,on_hide=on_hide)
+		except Exception as E:
+			localApi.error(str(E))

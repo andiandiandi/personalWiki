@@ -2,15 +2,29 @@
 <html>
     <head>
         <title>Opened Notebooks</title>
+        <style type="text/css">
+    #sessions {
+        position: fixed;
+        top: 20%;
+        left: 50%;
+        transform: translate(-50%, -20%);
+    }
+</style>
     </head>
     <body>
-        <div style="text-align:center; list-style-position:inside;>
-        {% for sid in sids %}
+        
+        <div id="sessions">
+        <div>
+          <p>
+            Laufende Sessions:
+          </p>
+        </div>
+        {% for sid in sidRootfolderMapping %}
         <div>
         	<p>
-    			<a href="{{ url_for('fileHierarchy',sid=sid) }}"
+    			<a href="{{ url_for('fileHierarchy', sid = sid) }}"
 				   title="mehr Informationen">
-				    {{ sid }}
+				    <b>{{ sidRootfolderMapping[sid] }} </b> <i> ( {{ sid }} ) </i>
 				</a>
        			 </b>
    			</p>

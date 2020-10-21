@@ -63,6 +63,12 @@ def hasConnections():
 def sids():
 	return wikis.keys()
 
+def sidRootfolderMap():
+	mapping = {}
+	for sid, wiki in wikis.items():
+		mapping[sid] = wiki.root_folder
+	return mapping
+
 class Subscriber:
 	def __init__(self,socketSid,targetSid,eventname,socket,namespace,path=None):
 		self.socketSid = socketSid

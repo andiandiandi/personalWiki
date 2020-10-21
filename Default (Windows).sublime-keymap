@@ -7,17 +7,16 @@
 	{ "keys": ["alt+h"], "command": "navigate_wikipage" , "args":{"home": true} },
 	{ "keys": ["ctrl+w"], "command": "word_count"},
 	{ "keys": ["ctrl+alt+w"], "command": "word_count", "args":{ "searchWholeNotebook": true }},
-	{ "keys": ["ctrl+alt+e"], "command": "check_for_broken_links", "args":{ "also_check_http": false }},
+	{ "keys": ["alt+4"], "command": "render_wikipage"},
 
 	{ "keys": ["alt+x"], "command": "search_query" },
 	{ "keys": ["alt+y"], "command": "saved_search_query" },
 
 	{ "keys": ["alt+f"], "command": "drag_and_drop"},
-	{ "keys": ["alt+b"], "command": "test_test"},
 
 	{ "keys": ["alt+1"], "command": "connect_wiki"},
 	{ "keys": ["alt+2"], "command": "initialize_wiki_project"},
 	{ "keys": ["alt+3"], "command": "disconnect_wiki"},
-	{ "keys": ["ctrl+alt+q"], "command": "insert_template", "args":{ "wikipage": "C:\\Users\\Andre\\Desktop\\aaa\\newFile.md","template_filename": "timeAndPagename"}},
+	{ "keys": ["alt+5"], "command": "search_query_test"},
 ]
 
