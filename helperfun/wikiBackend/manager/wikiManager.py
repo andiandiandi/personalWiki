@@ -248,6 +248,7 @@ class Wiki:
 
 		result = sorted(result, key=lambda k: k['rating'], reverse=True)
 		toret["data"] = result
+		toret["searchterms"] = phrase
 		return responseGenerator.createSuccessResponse(toret)
 
 

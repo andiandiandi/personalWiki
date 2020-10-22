@@ -28,7 +28,7 @@ class SavedSearchQueryCommand(sublime_plugin.TextCommand):
 					<html>
 						<body>
 							<style>
-								a.fillthediv{display:block;height:100%;width:1000px;text-decoration: none;}
+								a.fillthediv{display:block;text-decoration: none;}
 							</style>
 							
 					"""
@@ -46,7 +46,7 @@ class SavedSearchQueryCommand(sublime_plugin.TextCommand):
 				def on_navigate(href):
 					sublime.active_window().run_command("search_query",args={"searchQuery":href})
 
-				self.view.show_popup(c,max_width=1000,max_height=1080,location=0,on_navigate=on_navigate,on_hide=None)
+				self.view.show_popup(c,max_width=1000,max_height=1080,location=self.view.sel()[0].a,on_navigate=on_navigate,on_hide=None)
 			except Exception as E:
 				localApi.error(str(E))
 
@@ -96,7 +96,7 @@ class ShowSearchResultCommand(sublime_plugin.TextCommand):
 					<html>
 						<body>
 							<style>
-								a.fillthediv{display:block;height:100%;width:1000px;text-decoration: none;}
+								a.fillthediv{display:block;text-decoration: none;}
 							</style>
 							
 					"""
@@ -109,7 +109,7 @@ class ShowSearchResultCommand(sublime_plugin.TextCommand):
 										<div>
 											<a href="{2}::{3}" class="fillthediv">
 												<p>file:{0} | line:{1}</p>
-												<p>> "{4}"</p>
+												<p style="word-break:break-all"> "{4}"</p>
 											</a>
 										</div>
 										
@@ -131,12 +131,25 @@ class ShowSearchResultCommand(sublime_plugin.TextCommand):
 
 
 				elif searchType == "fulltextsearch":
+					try:
+						searchTerms = queryResultParsed["searchterms"]
+					except:
+						pass
 					for entry in data:
+						if searchTerms:
+							l = entry["fullphrase"].split(" ")
+							for term in searchTerms:
+								for indx, s in enumerate(l):
+									if s == term:
+										s = "<b style='color:red'>{0}</b>".format(s)
+										l[indx] = s
+						entry["fullphrase"] = ' '.join(word for word in l)
+
 						subHtml = """
 								<div>
 									<a href="{2}::{3}" class="fillthediv">
 										<p>rating: {0} | file: {5} | lines: {4}</p>
-										<p>{1}</p>
+										<p style="word-break:break-all">{1}</p>
 									</a>
 								</div>
 								
@@ -144,6 +157,7 @@ class ShowSearchResultCommand(sublime_plugin.TextCommand):
 									entry["filepath"],entry["lines"],entry["lines"][0] if len(entry["lines"]) == 1 else str(entry["lines"][0]) + "-" + str(entry["lines"][-1]),
 									os.path.basename(entry["filepath"]))
 
+						
 						c += subHtml
 				elif searchType == "deleted":
 					pass
@@ -168,7 +182,7 @@ class ShowSearchResultCommand(sublime_plugin.TextCommand):
 					self.view.hide_popup()
 					load_and_select(None,viewname,lines[0],lines[-1])
 
-				self.view.show_popup(c,max_width=650,max_height=1080,location=0,on_navigate=on_navigate,on_hide=on_hide)
+				self.view.show_popup(c,max_width=650,max_height=1080,location=self.view.sel()[0].a,on_navigate=on_navigate,on_hide=on_hide)
 		except Exception as E:
 			localApi.error(str(E))
 
@@ -209,9 +223,11 @@ class SearchQueryDebugCommand(sublime_plugin.TextCommand):
 
 class SearchQueryTestCommand(sublime_plugin.TextCommand):
 	def run(self, edit):
-		queryResult = json.dumps({"type": "fulltextsearch", "data": [{"lines": [3], "rating": 1.0, "fullphrase": "Wer marschen eigentum hinunter jahrlich launigen wir freundes Schritt den pfeifen bei schlief brummte Wunderbar so verwegene em ri aufstehen neugierig turnhalle Gegen haute hin guter ferne gib zarte war Heut ein auf las fiel igen Schlupfte aufstehen tat weiterhin schnupfen den Ja er knopf darum blank ri du notig lange etwas", "filepath": "C:\\Users\\Andre\\Desktop\\onefilewiki\\tt.md"}]})
+		queryResult = json.dumps({"type": "fulltextsearch", "data": [{'rating': 1.0, 'fullphrase': 'Wer marschen eigentum hinunter jahrlich launigen wir freundes Schritt den pfeifen bei schlief brummte Wunderbar so verwegene em ri aufstehen neugierig turnhalle Gegen haute hin guter ferne gib zarte war Heut ein auf las fiel igen Schlupfte aufstehen tat weiterhin schnupfen den Ja er knopf darum blank ri du notig lange etwas', 'lines': [3], 'filepath': 'C:\\Users\\Andre\\Desktop\\onefilewiki\\tt.md'},{'rating': 1.0, 'fullphrase': 'Wer marschen eigentum hinunter jahrlich launigen wir freundes Schritt den pfeifen bei schlief brummte Wunderbar so verwegene em ri aufstehen neugierig turnhalle Gegen haute hin guter ferne gib zarte war Heut ein auf las fiel igen Schlupfte aufstehen tat weiterhin schnupfen den Ja er knopf darum blank ri du notig lange etwas', 'lines': [3], 'filepath': 'C:\\Users\\Andre\\Desktop\\onefilewiki\\tt.md'},{'rating': 1.0, 'fullphrase': 'Wer marschen eigentum hinunter jahrlich launigen wir freundes Schritt den pfeifen bei schlief brummte Wunderbar so verwegene em ri aufstehen neugierig turnhalle Gegen haute hin guter ferne gib zarte war Heut ein auf las fiel igen Schlupfte aufstehen tat weiterhin schnupfen den Ja er knopf darum blank ri du notig lange etwas', 'lines': [3], 'filepath': 'C:\\Users\\Andre\\Desktop\\onefilewiki\\tt.md'},{'rating': 1.0, 'fullphrase': 'Wer marschen eigentum hinunter jahrlich launigen wir freundes Schritt den pfeifen bei schlief brummte Wunderbar so verwegene em ri aufstehen neugierig turnhalle Gegen haute hin guter ferne gib zarte war Heut ein auf las fiel igen Schlupfte aufstehen tat weiterhin schnupfen den Ja er knopf darum blank ri du notig lange etwas', 'lines': [3], 'filepath': 'C:\\Users\\Andre\\Desktop\\onefilewiki\\tt.md'},{'rating': 1.0, 'fullphrase': 'Wer marschen eigentum hinunter jahrlich launigen wir freundes Schritt den pfeifen bei schlief brummte Wunderbar so verwegene em ri aufstehen neugierig turnhalle Gegen haute hin guter ferne gib zarte war Heut ein auf las fiel igen Schlupfte aufstehen tat weiterhin schnupfen den Ja er knopf darum blank ri du notig lange etwas', 'lines': [3], 'filepath': 'C:\\Users\\Andre\\Desktop\\onefilewiki\\tt.md'},{'rating': 1.0, 'fullphrase': 'Wer marschen eigentum hinunter jahrlich launigen wir freundes Schritt den pfeifen bei schlief brummte Wunderbar so verwegene em ri aufstehen neugierig turnhalle Gegen haute hin guter ferne gib zarte war Heut ein auf las fiel igen Schlupfte aufstehen tat weiterhin schnupfen den Ja er knopf darum blank ri du notig lange etwas', 'lines': [3], 'filepath': 'C:\\Users\\Andre\\Desktop\\onefilewiki\\tt.md'},{"lines": [3], "rating": 1.0, "fullphrase": "Wer marschen eigentum hinunter jahrlich launigen wir freundes Schritt den pfeifen bei schlief brummte Wunderbar so verwegene em ri aufstehen neugierig turnhalle Gegen haute hin guter ferne gib zarte war Heut ein auf las fiel igen Schlupfte aufstehen tat weiterhin schnupfen den Ja er knopf darum blank ri du notig lange etwas", "filepath": "C:\\Users\\Andre\\Desktop\\onefilewiki\\tt.md"}], "searchterms": ["hinunter", "jahrlich"]})
+		queryResult = json.dumps({"type": "fulltextsearch", "data": [{"lines": [15], "rating": 1.0, "fullphrase": "Gern pa da uber kerl frei kaum um grad en Hol bis euern habet gro viere hoher trost Schnupfen das sag die aufraumen des plotzlich bettstatt Tat hinuber mit kleines ein fingern das nachher unruhig Gewandert er bekummert er uberhaupt vogelnest pa stadtchen Eigentlich ubelnehmen vertreiben schuttelte em he wohlgefuhl dammerigen zu wo Stillen des nun lichten gerbers langsam Sa wanderer lampchen so arbeiter lauschte se Indem du alten reden in deren am funfe um faden Wunschte wo gerberei rabatten gesellen du konntest schmalen je so", "filepath": "C:\\Users\\Andre\\Desktop\\zehnWikiseiten\\c.md"}, {"lines": [17], "rating": 1.0, "fullphrase": "Auf jemand daumen geh linken lag armeln kleide nimmer Grasplatz zufrieden was aus wohnstube Du hatt je ku habs leid nest Gespielt je erzahlen mi wo schonste ob Gesagt lustig wo hinter zu gefuhl musset so er burste Gescheite furchtete art bettstatt sorglosen verweilen dir wei von Tadellos brannten her war sto was erschien gesellen Abstellte das zuschauer der rausperte vogelnest plotzlich ein Vor begierig gespielt hin ein zinnerne tag Hast gebe der dran mir dies seid ehe", "filepath": "C:\\Users\\Andre\\Desktop\\zehnWikiseiten\\h.md"}, {"lines": [15, 17], "rating": 0.94, "fullphrase": "Gern pa da uber kerl frei kaum um grad en Hol bis euern habet gro viere hoher trost Schnupfen das sag die aufraumen des plotzlich bettstatt Tat hinuber mit kleines ein fingern das nachher unruhig Gewandert er bekummert er uberhaupt vogelnest pa stadtchen Eigentlich ubelnehmen vertreiben schuttelte em he wohlgefuhl dammerigen zu wo Stillen des nun lichten gerbers langsam Sa wanderer lampchen so arbeiter lauschte se Indem du alten reden in deren am funfe um faden Wunschte wo gerberei rabatten gesellen du konntest schmalen je so...Endigend befehlen gedichte er zu ziemlich Habet en armen haben zu wu Wo wo durchs kuhlen freund in fragte schlie um Leuchter ist las verlohnt achtzehn sie gru hausherr Bummelte gesprach vollbart gespielt kam hut neunzehn Hubschen doppelte ja schonste bummelte ja schreien pa pa befehlen Nichtstun aufstehen behaglich mu ja an belustigt dammerung plotzlich", "filepath": "C:\\Users\\Andre\\Desktop\\zehnWikiseiten\\c.md"}, {"lines": [13, 25], "rating": 0.68, "fullphrase": "In ja unbeirrt endigend erzahlen ubrigens du se schuppen Ei fingern namlich an ri wartete es speisen gefallt stiefel Unwissend geblendet gestrigen rausperte um bettstatt bi vergnugen Wu gegangen se liebsten gewartet vergnugt ja unbeirrt schuppen Sind erst rand im es la bi name Kennt la kinde da ewige hause Mu geschirr in herunter kurioses trostlos schlecht getraumt Land er oben te kein lass gern mich je La da viehmarkt ja im ausgeruht duftenden Erzahlen doppelte aufstand wu er gerberei la zwischen pa...Sog die schonheit duftenden hol plotzlich spazieren Kummer fragen worden eck und daheim treppe tat gruben Dus lag lassig handen unterm lauter stimme Streckte halbwegs herunter nochmals schreien es pa Du feinheit er du kindbett marschen te Augenblick vielleicht am achthausen vielleicht la erkundigte da Vor wenn tag sohn drei duse mich flei", "filepath": "C:\\Users\\Andre\\Desktop\\zehnWikiseiten\\i.md"}, {"lines": [13, 31], "rating": 0.59, "fullphrase": "In ja unbeirrt endigend erzahlen ubrigens du se schuppen Ei fingern namlich an ri wartete es speisen gefallt stiefel Unwissend geblendet gestrigen rausperte um bettstatt bi vergnugen Wu gegangen se liebsten gewartet vergnugt ja unbeirrt schuppen Sind erst rand im es la bi name Kennt la kinde da ewige hause Mu geschirr in herunter kurioses trostlos schlecht getraumt Land er oben te kein lass gern mich je La da viehmarkt ja im ausgeruht duftenden Erzahlen doppelte aufstand wu er gerberei la zwischen pa...Nie sogar tur lagen nun klage Feinen flu servus feucht dus bis vor jahren regnet Ausblasen ein filzhutes tat tat zuschauer plotzlich Zum mit ins mir riefe ihren zahne Vor mannsbild dahinging aufstehen senkrecht oha Geburstet zog man liebevoll einfacher verlangst tur hei", "filepath": "C:\\Users\\Andre\\Desktop\\zehnWikiseiten\\i.md"}, {"lines": [3, 25], "rating": 0.21, "fullphrase": "Em verdrossen fluchtigen wasserkrug am dazwischen getunchten so nachmittag Im ebenso buckte er diesem fremde durren sitzen Ei hing zehn ab wach ture am Tadellos her mit jenseits mitreden betrubte kollegen las Ja anzeichen en fu vorbeugte bettstatt Extra halbe reden im es Brotlose nur ziemlich aus lachelte hat blo...Sog die schonheit duftenden hol plotzlich spazieren Kummer fragen worden eck und daheim treppe tat gruben Dus lag lassig handen unterm lauter stimme Streckte halbwegs herunter nochmals schreien es pa Du feinheit er du kindbett marschen te Augenblick vielleicht am achthausen vielleicht la erkundigte da Vor wenn tag sohn drei duse mich flei", "filepath": "C:\\Users\\Andre\\Desktop\\zehnWikiseiten\\i.md"}, {"lines": [3, 31], "rating": 0.18, "fullphrase": "Em verdrossen fluchtigen wasserkrug am dazwischen getunchten so nachmittag Im ebenso buckte er diesem fremde durren sitzen Ei hing zehn ab wach ture am Tadellos her mit jenseits mitreden betrubte kollegen las Ja anzeichen en fu vorbeugte bettstatt Extra halbe reden im es Brotlose nur ziemlich aus lachelte hat blo...Nie sogar tur lagen nun klage Feinen flu servus feucht dus bis vor jahren regnet Ausblasen ein filzhutes tat tat zuschauer plotzlich Zum mit ins mir riefe ihren zahne Vor mannsbild dahinging aufstehen senkrecht oha Geburstet zog man liebevoll einfacher verlangst tur hei", "filepath": "C:\\Users\\Andre\\Desktop\\zehnWikiseiten\\i.md"}], "searchterms": ["plotzlich", "bettstatt"]})
 		try:
 			queryResultParsed = json.loads(queryResult)
+			print(queryResultParsed)
 			searchType = queryResultParsed["type"]
 			data = queryResultParsed["data"]
 			if data:
@@ -219,7 +235,7 @@ class SearchQueryTestCommand(sublime_plugin.TextCommand):
 					<html>
 						<body>
 							<style>
-								a.fillthediv{display:block;height:100%;width:1000px;text-decoration: none;}
+								a.fillthediv{display:block;text-decoration: none;}
 							</style>
 							
 					"""
@@ -232,7 +248,7 @@ class SearchQueryTestCommand(sublime_plugin.TextCommand):
 										<div>
 											<a href="{2}::{3}" class="fillthediv">
 												<p>file:{0} | line:{1}</p>
-												<p>> "{4}"</p>
+												<p style="word-break:break-all"> "{4}"</p>
 											</a>
 										</div>
 										
@@ -254,18 +270,31 @@ class SearchQueryTestCommand(sublime_plugin.TextCommand):
 
 
 				elif searchType == "fulltextsearch":
+					try:
+						searchTerms = queryResultParsed["searchterms"]
+					except:
+						pass
 					for entry in data:
+						if searchTerms:
+							l = entry["fullphrase"].split(" ")
+							for term in searchTerms:
+								for indx, s in enumerate(l):
+									if s == term:
+										s = "<b style='color:red'>{0}</b>".format(s)
+										l[indx] = s
+						entry["fullphrase"] = ' '.join(word for word in l)
 						subHtml = """
 								<div>
 									<a href="{2}::{3}" class="fillthediv">
 										<p>rating: {0} | file: {5} | lines: {4}</p>
-										<p>{1}</p>
+										<p style="word-break:break-all">{1}</p>
 									</a>
 								</div>
 								
 						""".format(str(round((float(entry["rating"]) * 100),2)) + "%",entry["fullphrase"],
 									entry["filepath"],entry["lines"],entry["lines"][0] if len(entry["lines"]) == 1 else str(entry["lines"][0]) + "-" + str(entry["lines"][-1]),
 									os.path.basename(entry["filepath"]))
+
 
 						c += subHtml
 				elif searchType == "deleted":
@@ -291,6 +320,6 @@ class SearchQueryTestCommand(sublime_plugin.TextCommand):
 					self.view.hide_popup()
 					load_and_select(None,viewname,lines[0],lines[-1])
 
-				self.view.show_popup(c,max_width=650,max_height=1080,location=0,on_navigate=on_navigate,on_hide=on_hide)
+				self.view.show_popup(c,max_width=650,max_height=1080,location=self.view.sel()[0].a,on_navigate=on_navigate,on_hide=on_hide)
 		except Exception as E:
 			localApi.error(str(E))

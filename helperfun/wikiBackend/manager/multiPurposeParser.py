@@ -193,12 +193,15 @@ def search(phrase, wordHash, linespan=0,filepath = None):
 			l.append(r)
 		if l:
 			sortedFindings = sorted(l, key=lambda k: k['rating'], reverse=True)
+			"""
 			filteredFindings = list(filter(lambda k : k["rating"] >= 0.7, sortedFindings))
 			size = len(filteredFindings)
 			if size >= 4:
 				finalResult = filteredFindings
 			else:
 				finalResult = sortedFindings
+			"""
+			finalResult = sortedFindings
 
 	return finalResult
 
