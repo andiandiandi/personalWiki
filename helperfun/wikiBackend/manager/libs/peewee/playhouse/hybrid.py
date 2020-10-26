@@ -1,4 +1,4 @@
-from peewee import ModelDescriptor
+from ..peewee import ModelDescriptor
 
 
 # Hybrid methods/attributes, based on similar functionality in SQLAlchemy:
