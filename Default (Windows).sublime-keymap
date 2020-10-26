@@ -17,6 +17,5 @@
 	{ "keys": ["alt+1"], "command": "connect_wiki"},
 	{ "keys": ["alt+2"], "command": "initialize_wiki_project"},
 	{ "keys": ["alt+3"], "command": "disconnect_wiki"},
-	{ "keys": ["alt+5"], "command": "search_query_test"},
 ]
 

@@ -103,7 +103,8 @@ class FileEventHandler(FileSystemEventHandler):
 					else:
 						self.modifiedBookkeeping[eventObj["srcPath"]] = eventObj["lastmodified"]
 					if eventObj["type"] != "moved":
-						eventObj["content"] = pathManager.generateContent(eventObj["srcPath"])
+						if eventObj["valid"]:
+							eventObj["content"] = pathManager.generateContent(eventObj["srcPath"])
 					else:
 						if eventObj["srcPath"] == eventObj["destPath"]:
 							eventObj["valid"] = False

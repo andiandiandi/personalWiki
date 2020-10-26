@@ -150,6 +150,7 @@ def search(phrase, wordHash, linespan=0,filepath = None):
 			#here compare
 			ratio = fuzz.ratio(w.lower(),searchword.lower())
 			if ratio >= 85 and ratio > bestratio:
+				bestratio = ratio
 				bestmatch = wordLineTuple[1]
 
 		return bestmatch
@@ -184,7 +185,7 @@ def search(phrase, wordHash, linespan=0,filepath = None):
 			a = Counter(i).most_common(1)[0]
 			fullphrase = "PREVIEW NOT AVAILABLE"
 			try:
-				fullphrase = "...".join([wordHash["lines"][str(line)] for line in i])
+				fullphrase = " ... ".join([wordHash["lines"][str(line)] for line in i])
 			except:
 				pass
 			r = {"lines":i,"rating":round(i[0]/(sum(i)/len(i)),2),"fullphrase":fullphrase}

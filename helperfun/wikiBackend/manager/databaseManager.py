@@ -188,6 +188,7 @@ class DatabaseWrapper:
 
 	def updateWikipage(self,fileid,content):
 		with self.db.bind_ctx(models.modellist):
+			print("UPDATINGWIKIPAGE!",content)
 			try:
 				tree = multiPurposeParser.parseContentMistletoe(content)
 				dictTree = json.loads(tree)

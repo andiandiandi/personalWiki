@@ -4,9 +4,10 @@ für die Wikiseite
 mit dem Namen:
 # $wikipage  
 
-Weiter mögliche
+Weitere mögliche
 Variablen:
 $date
-$datetime
 $time
+$datetime
+
 
